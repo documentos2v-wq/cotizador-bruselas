@@ -2,6 +2,7 @@ from datetime import datetime
 import io
 import os
 import pandas as pd
+import requests
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as RLImage
@@ -13,6 +14,23 @@ st.set_page_config(page_title="Generador de Cotizaciones - Bruselas", layout="wi
 
 st.title("📄 Generador de Cotizaciones - BRUSELAS GROUP EIRL")
 st.markdown("---")
+
+# --- FUNCIÓN PARA CONSULTAR RUC (SUNAT VÍA API PÚBLICA) ---
+def consultar_ruc_sunat(numero_ruc):
+    if len(str(numero_ruc).strip()) == 11:
+        try:
+            # Usamos una API abierta y confiable para consulta de RUC en Perú
+            url = f"https://api.apis.net.pe/v2/sunat/ruc?numero={numero_ruc}"
+            # O en su defecto, una consulta libre estándar:
+            response = requests.get(f"https://api.apis.net.pe/v1/ruc?numero={numero_ruc}", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                razon_social = data.get("nombre", "") or data.get("razonSocial", "")
+                direccion = data.get("direccion", "")
+                return razon_social, direccion
+        except Exception as e:
+            pass
+    return None, None
 
 # --- FUNCIÓN PARA CONVERTIR NÚMEROS A LETRAS ---
 def numero_a_letras(monto):
@@ -74,17 +92,39 @@ def numero_a_letras(monto):
 
 # --- SECCIÓN 1: DATOS GENERALES ---
 st.subheader("1. Información del Cliente y Cotización")
+
+# Inicializamos valores en session_state para la auto-consulta de RUC
+if 'ruc_input' not in st.session_state:
+    st.session_state.ruc_input = "20354537096"
+if 'cliente_input' not in st.session_state:
+    st.session_state.cliente_input = "RED INTEGRADA DE SALUD OTUZCO"
+if 'dir_input' not in st.session_state:
+    st.session_state.dir_input = "CALLE TACNA Nº 769 - OTUZCO - LA LIBERTAD"
+
 col1, col2, col3 = st.columns(3)
 
 with col1:
     nro_cotizacion = st.text_input("N° de Cotización", "000-5960")
-    cliente = st.text_input("Cliente", "RED INTEGRADA DE SALUD OTUZCO")
+    # Campo RUC con botón o trigger automático al escribir
+    ruc = st.text_input("RUC del Cliente", value=st.session_state.ruc_input)
+    if ruc != st.session_state.ruc_input:
+        st.session_state.ruc_input = ruc
+        if len(ruc.strip()) == 11:
+            with st.spinner("Consultando RUC en línea..."):
+                razon, direccion_encontrada = consultar_ruc_sunat(ruc)
+                if razon:
+                    st.session_state.cliente_input = razon
+                    if direccion_encontrada:
+                        st.session_state.dir_input = direccion_encontrada
+                    st.success("¡Datos del cliente encontrados y rellenados automáticamente!")
+                    st.rerun()
+
 with col2:
     fecha = st.date_input("Fecha", datetime.today())
-    direccion = st.text_input("Dirección", "CALLE TACNA Nº 769 - OTUZCO - LA LIBERTAD")
+    cliente = st.text_input("Cliente", value=st.session_state.cliente_input)
 with col3:
-    ruc = st.text_input("RUC del Cliente", "20354537096")
     codigo_ref = st.text_input("Código Interno / Ref", "002022-0007-0045")
+    direccion = st.text_input("Dirección", value=st.session_state.dir_input)
 
 st.markdown("---")
 
@@ -104,7 +144,6 @@ if 'productos_df' not in st.session_state:
         }
     ])
 
-# Aseguramos que la columna 'Importe Total' se calcule dinámicamente en el editor
 df_input = st.session_state.productos_df.copy()
 if 'Importe Total' not in df_input.columns:
     df_input['Importe Total'] = df_input['Cantidad'] * df_input['P.U. (Inc. IGV)']
@@ -120,7 +159,6 @@ df_editado = st.data_editor(
     }
 )
 
-# Cálculo automático actualizado en tiempo real
 df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
 df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
 df_limpio['P.U. (Inc. IGV)'] = pd.to_numeric(df_limpio['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
@@ -210,7 +248,6 @@ def generar_pdf():
         for idx in df_limpio.index
     )
     
-    # Tabla de productos con IMPORTE exactamente al costado de P.U.
     if hay_imagenes:
         prod_data = [[
             Paragraph("CANT.", estilo_th),
