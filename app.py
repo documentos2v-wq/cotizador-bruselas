@@ -89,7 +89,7 @@ with col3:
 st.markdown("---")
 
 # --- SECCIÓN 2: DETALLE DE PRODUCTOS ---
-st.subheader("2. Detalle de Productos, Precios y Totales por Ítem")
+st.subheader("2. Detalle de Productos y Precios Unitarios")
 
 if 'productos_df' not in st.session_state:
     st.session_state.productos_df = pd.DataFrame([
@@ -103,6 +103,7 @@ if 'productos_df' not in st.session_state:
         }
     ])
 
+# Tabla interactiva unificada
 df_editado = st.data_editor(
     st.session_state.productos_df,
     num_rows="dynamic",
@@ -113,7 +114,7 @@ df_editado = st.data_editor(
     }
 )
 
-# Cálculos previos en pantalla web
+# Cálculos automáticos internos por ítem
 df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
 df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
 df_limpio['P.U. (Inc. IGV)'] = pd.to_numeric(df_limpio['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
@@ -122,13 +123,9 @@ df_limpio['Importe Total'] = df_limpio['Cantidad'] * df_limpio['P.U. (Inc. IGV)'
 importe_total_general = df_limpio['Importe Total'].sum()
 monto_en_letras = numero_a_letras(importe_total_general)
 
-# Mostrar vista previa interactiva con los totales por producto
-st.markdown("#### 📊 Vista previa de Totales Calculados por Ítem:")
-st.dataframe(df_limpio[['Cantidad', 'Código', 'Descripción', 'P.U. (Inc. IGV)', 'Importe Total']], use_container_width=True)
-
 st.markdown("---")
 st.markdown("#### 📷 Adjuntar Imágenes Opcionales (Automático por Fila)")
-st.info("Si subes una imagen para un ítem, aparecerá automáticamente en su fila del PDF. Si no subes ninguna, la columna de imagen se omitirá automáticamente.")
+st.info("Si subes una imagen para un ítem, aparecerá automáticamente en su fila del PDF. Si no subes ninguna, la columna de imagen se omitirá.")
 
 if 'imagenes_items' not in st.session_state:
     st.session_state.imagenes_items = {}
@@ -208,7 +205,7 @@ def generar_pdf():
         for idx in df_limpio.index
     )
     
-    # Construcción dinámica de la tabla de productos (con o sin columna de imagen automática)
+    # Tabla de productos con la columna IMPORTE ubicada inmediatamente al costado de P.U.
     if hay_imagenes:
         prod_data = [[
             Paragraph("CANT.", estilo_th),
@@ -227,11 +224,11 @@ def generar_pdf():
             Paragraph("CODIGO", estilo_th),
             Paragraph("DESCRIPCION", estilo_th),
             Paragraph("MARCA", estilo_th),
-            Paragraph("PLAZO ENTREGA", estilo_th),
+            Paragraph("PLAZO", estilo_th),
             Paragraph("P.U.", estilo_th),
             Paragraph("IMPORTE", estilo_th)
         ]]
-        col_widths = [40, 60, 182, 55, 65, 65, 85]
+        col_widths = [40, 60, 192, 55, 55, 65, 85]
     
     temp_img_paths = []
     
