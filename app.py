@@ -88,7 +88,7 @@ with col3:
 st.markdown("---")
 
 # --- SECCIÓN 2: DETALLE DE PRODUCTOS (TABLA DINÁMICA) ---
-st.subheader("2. Detalle de Productos (Puedes agregar varias filas)")
+st.subheader("2. Detalle de Productos (Casillas de Precios Unitarios y Cantidades)")
 
 if 'productos_df' not in st.session_state:
     st.session_state.productos_df = pd.DataFrame([
@@ -112,7 +112,6 @@ df_editado = st.data_editor(
     }
 )
 
-# Limpiamos las filas que tengan valores vacíos (None) para evitar errores
 df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
 df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
 df_limpio['P.U. (Inc. IGV)'] = pd.to_numeric(df_limpio['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
@@ -145,7 +144,14 @@ def generar_pdf():
     
     styles = getSampleStyleSheet()
     estilo_normal = ParagraphStyle('NormalCustom', parent=styles['Normal'], fontSize=9, leading=11)
+    estilo_blanco = ParagraphStyle('BlancoCustom', parent=styles['Normal'], fontSize=9, leading=11, fontName="Helvetica-Bold", textColor=colors.white)
     estilo_letras = ParagraphStyle('LetrasCustom', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Oblique")
+    
+    # Estilos seguros para celdas de la tabla (evita encimado de textos)
+    estilo_th = ParagraphStyle('TH', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Bold", textColor=colors.white, alignment=1)
+    estilo_td_left = ParagraphStyle('TDL', parent=styles['Normal'], fontSize=8, leading=10, alignment=0)
+    estilo_td_center = ParagraphStyle('TDC', parent=styles['Normal'], fontSize=8, leading=10, alignment=1)
+    estilo_td_right = ParagraphStyle('TDR', parent=styles['Normal'], fontSize=8, leading=10, alignment=2)
     
     # Encabezado Empresa
     elements.append(Paragraph("<b>BRUSELAS GROUP EIRL</b>", ParagraphStyle('Empresa', fontSize=18, leading=20, textColor=colors.HexColor("#003366"), fontName="Helvetica-Bold")))
@@ -156,9 +162,10 @@ def generar_pdf():
     subtotal = importe_total_general / 1.18
     igv = importe_total_general - subtotal
     
+    # Datos de cliente y cabecera (con texto blanco en la sección derecha)
     info_data = [
-        [Paragraph(f"<b>CODIGO:</b> {codigo_ref}", estilo_normal), Paragraph(f"<b>FECHA:</b> {fecha.strftime('%d/%m/%Y')}", estilo_normal)],
-        [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotizacion}", estilo_normal)],
+        [Paragraph(f"<b>CODIGO:</b> {codigo_ref}", estilo_normal), Paragraph(f"<b>FECHA:</b> {fecha.strftime('%d/%m/%Y')}", estilo_blanco)],
+        [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotizacion}", estilo_blanco)],
         [Paragraph(f"<b>DIRECCION:</b> {direccion}", estilo_normal), ""],
         [Paragraph(f"<b>RUC:</b> {ruc}", estilo_normal), ""]
     ]
@@ -168,38 +175,48 @@ def generar_pdf():
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('BOX', (1,0), (1,1), 1, colors.HexColor("#003366")),
         ('BACKGROUND', (1,0), (1,1), colors.HexColor("#003366")),
+        ('TOPPADDING', (1,0), (1,1), 4),
+        ('BOTTOMPADDING', (1,0), (1,1), 4),
     ]))
     elements.append(t_info)
     elements.append(Spacer(1, 15))
     
-    prod_data = [["CANT.", "CODIGO", "DESCRIPCION", "MARCA", "PLAZO ENTREGA", "P.U.", "IMPORTE"]]
+    # Tabla de Productos con párrafos formateados para evitar superposición
+    prod_data = [[
+        Paragraph("CANT.", estilo_th),
+        Paragraph("CODIGO", estilo_th),
+        Paragraph("DESCRIPCION", estilo_th),
+        Paragraph("MARCA", estilo_th),
+        Paragraph("PLAZO ENTREGA", estilo_th),
+        Paragraph("P.U.", estilo_th),
+        Paragraph("IMPORTE", estilo_th)
+    ]]
     
     for _, row in df_limpio.iterrows():
         cant_val = int(row['Cantidad'])
         pu_val = float(row['P.U. (Inc. IGV)'])
         imp_val = cant_val * pu_val
         prod_data.append([
-            str(cant_val),
-            str(row['Código']) if pd.notna(row['Código']) else "",
-            str(row['Descripción']) if pd.notna(row['Descripción']) else "",
-            str(row['Marca']) if pd.notna(row['Marca']) else "",
-            str(row['Plazo Entrega']) if pd.notna(row['Plazo Entrega']) else "",
-            f"S/ {pu_val:,.2f}",
-            f"S/ {imp_val:,.2f}"
+            Paragraph(str(cant_val), estilo_td_center),
+            Paragraph(str(row['Código']) if pd.notna(row['Código']) else "", estilo_td_center),
+            Paragraph(str(row['Descripción']) if pd.notna(row['Descripción']) else "", estilo_td_left),
+            Paragraph(str(row['Marca']) if pd.notna(row['Marca']) else "", estilo_td_center),
+            Paragraph(str(row['Plazo Entrega']) if pd.notna(row['Plazo Entrega']) else "", estilo_td_center),
+            Paragraph(f"S/ {pu_val:,.2f}", estilo_td_right),
+            Paragraph(f"S/ {imp_val:,.2f}", estilo_td_right)
         ])
     
     t_prod = Table(prod_data, colWidths=[40, 60, 210, 50, 60, 50, 60])
     t_prod.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#003366")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,-1), 8),
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
     ]))
     elements.append(t_prod)
     
+    # Fila de Total en Letras
     letras_data = [[Paragraph(f"<b>SON:</b> &nbsp; <i>{monto_en_letras}</i>", estilo_letras)]]
     t_letras = Table(letras_data, colWidths=[530])
     t_letras.setStyle(TableStyle([
@@ -211,6 +228,7 @@ def generar_pdf():
     elements.append(t_letras)
     elements.append(Spacer(1, 10))
     
+    # Totales (Importe, IGV, Total)
     totales_data = [
         ["IMPORTE", f"S/ {subtotal:,.2f}"],
         ["IGV", f"S/ {igv:,.2f}"],
@@ -225,12 +243,15 @@ def generar_pdf():
         ('FONTNAME', (0,0), (-1,-1), 'Helvetica-Bold'),
         ('ALIGN', (1,0), (1,-1), 'RIGHT'),
         ('FONTSIZE', (0,0), (-1,-1), 8),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
     ]))
     
     wrapper_totales = Table([["", t_totales]], colWidths=[330, 200])
     elements.append(wrapper_totales)
     elements.append(Spacer(1, 15))
     
+    # Condiciones comerciales
     cond_data = [
         [Paragraph("<b>TIEMPO ENTREGA</b>", estilo_normal), f": {tiempo_entrega}"],
         [Paragraph("<b>RAZÓN SOCIAL</b>", estilo_normal), ": BRUSELAS GROUP EIRL"],
