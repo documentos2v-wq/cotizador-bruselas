@@ -89,7 +89,7 @@ with col3:
 st.markdown("---")
 
 # --- SECCIÓN 2: DETALLE DE PRODUCTOS ---
-st.subheader("2. Detalle de Productos y Precios Unitarios")
+st.subheader("2. Detalle de Productos, Precios e Importes Totales")
 
 if 'productos_df' not in st.session_state:
     st.session_state.productos_df = pd.DataFrame([
@@ -99,22 +99,28 @@ if 'productos_df' not in st.session_state:
             "Descripción": "REPRODUCTOR / EQUIPO TECNOLÓGICO ESPECIALIZADO",
             "Marca": "NACIONAL",
             "Plazo Entrega": "10",
-            "P.U. (Inc. IGV)": 399.90
+            "P.U. (Inc. IGV)": 399.90,
+            "Importe Total": 7998.00
         }
     ])
 
-# Tabla interactiva unificada
+# Aseguramos que la columna 'Importe Total' se calcule dinámicamente en el editor
+df_input = st.session_state.productos_df.copy()
+if 'Importe Total' not in df_input.columns:
+    df_input['Importe Total'] = df_input['Cantidad'] * df_input['P.U. (Inc. IGV)']
+
 df_editado = st.data_editor(
-    st.session_state.productos_df,
+    df_input,
     num_rows="dynamic",
     use_container_width=True,
     column_config={
         "Cantidad": st.column_config.NumberColumn("Cantidad", min_value=1, step=1),
-        "P.U. (Inc. IGV)": st.column_config.NumberColumn("P.U. (Inc. IGV)", min_value=0.0, format="S/ %.2f")
+        "P.U. (Inc. IGV)": st.column_config.NumberColumn("P.U. (Inc. IGV)", min_value=0.0, format="S/ %.2f"),
+        "Importe Total": st.column_config.NumberColumn("Importe Total", format="S/ %.2f", disabled=True)
     }
 )
 
-# Cálculos automáticos internos por ítem
+# Cálculo automático actualizado en tiempo real
 df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
 df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
 df_limpio['P.U. (Inc. IGV)'] = pd.to_numeric(df_limpio['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
@@ -199,13 +205,12 @@ def generar_pdf():
     elements.append(t_info)
     elements.append(Spacer(1, 15))
     
-    # Verificar si al menos un ítem tiene imagen subida
     hay_imagenes = any(
         idx in st.session_state.imagenes_items and st.session_state.imagenes_items[idx] is not None 
         for idx in df_limpio.index
     )
     
-    # Tabla de productos con la columna IMPORTE ubicada inmediatamente al costado de P.U.
+    # Tabla de productos con IMPORTE exactamente al costado de P.U.
     if hay_imagenes:
         prod_data = [[
             Paragraph("CANT.", estilo_th),
@@ -245,7 +250,7 @@ def generar_pdf():
                 with open(tmp_path, "wb") as f:
                     f.write(img_file.getbuffer())
                 temp_img_paths.append(tmp_path)
-                img_element = RLImage(tmp_path, width=42.5, height=42.5) # 1.5 cm x 1.5 cm exactos
+                img_element = RLImage(tmp_path, width=42.5, height=42.5)
             
             prod_data.append([
                 Paragraph(str(cant_val), estilo_td_center),
@@ -285,7 +290,6 @@ def generar_pdf():
     def dibujar_elementos_fijos(canvas, doc):
         canvas.saveState()
         
-        # 1. Franja Azul del Pie de Página
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.rect(0, 0, 612, 35, fill=1, stroke=0)
         canvas.setFillColor(colors.white)
@@ -293,7 +297,6 @@ def generar_pdf():
         texto_pie = "CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS - 917386419 - www.ventasschag.com"
         canvas.drawCentredString(612 / 2.0, 13, texto_pie)
         
-        # 2. Bloque inferior con tipografía unificada
         estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-Bold', fontSize=9, leading=12)
         estilo_c_val = ParagraphStyle('CV', fontName='Helvetica', fontSize=9, leading=12)
         estilo_letras = ParagraphStyle('LC', fontName='Helvetica-Oblique', fontSize=9, leading=12)
