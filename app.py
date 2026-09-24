@@ -226,7 +226,7 @@ def generar_pdf():
     estilo_td_center = ParagraphStyle('TDC', parent=styles['Normal'], fontSize=8, leading=10, alignment=1)
     estilo_td_right = ParagraphStyle('TDR', parent=styles['Normal'], fontSize=8, leading=10, alignment=2)
     
-    # Encabezado Empresa (Título imponente, tamaño 32 pt)
+    # Encabezado Empresa
     elements.append(Paragraph("<b>BRUSELAS GROUP EIRL</b>", ParagraphStyle('EmpresaGigante', fontSize=32, leading=36, textColor=colors.HexColor("#003366"), fontName="Helvetica-Bold")))
     elements.append(Spacer(1, 4))
     elements.append(Paragraph("CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS", estilo_normal))
@@ -330,22 +330,28 @@ def generar_pdf():
     ]))
     elements.append(t_prod)
     
-    # --- FUNCIÓN PARA DIBUJAR EL FONDO (MARCA DE AGUA), BLOQUE INFERIOR Y PIE DE PÁGINA ---
+    # --- FUNCIÓN PARA DIBUJAR FONDO CELESTE, LOGO COMO MARCA DE AGUA Y BLOQUE INFERIOR ---
     subtotal = importe_total_general / 1.18
     igv = importe_total_general - subtotal
 
     def dibujar_fondo_y_elementos(canvas, doc):
         canvas.saveState()
         
-        # 1. Fondo de Marca de Agua Corporativa (Texto centrado grande y muy suave en el fondo)
-        canvas.saveState()
-        canvas.setFillColor(colors.HexColor("#F0F4F8")) # Color gris-azulado muy tenue
-        canvas.setFont("Helvetica-Bold", 55)
-        canvas.rotate(35) # Rotación diagonal elegante
-        canvas.drawCentredString(350, 150, "BRUSELAS GROUP EIRL")
-        canvas.restoreState()
+        # 1. Color de fondo de la página idéntico al de la imagen del logo (#F2F6F9)
+        canvas.setFillColor(colors.HexColor("#F2F6F9"))
+        canvas.rect(0, 0, 612, 792, fill=1, stroke=0)
         
-        # 2. Franja Azul del Pie de Página
+        # 2. Logotipo como marca de agua semitransparente centrada en el fondo (si se subió logo.png)
+        if os.path.exists("logo.png"):
+            try:
+                canvas.saveState()
+                # Posicionar y dibujar el logo grande en el centro de la página con transparencia si es soportada
+                canvas.drawImage("logo.png", 156, 280, width=300, height=300, mask='auto', preserveAspectRatio=True)
+                canvas.restoreState()
+            except:
+                pass
+        
+        # 3. Franja Azul del Pie de Página
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.rect(0, 0, 612, 35, fill=1, stroke=0)
         canvas.setFillColor(colors.white)
@@ -353,7 +359,7 @@ def generar_pdf():
         texto_pie = "CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS - 917386419 - www.ventasschag.com"
         canvas.drawCentredString(612 / 2.0, 13, texto_pie)
         
-        # 3. Bloque inferior con tipografía unificada
+        # 4. Bloque inferior con tipografía unificada
         estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-Bold', fontSize=9, leading=12)
         estilo_c_val = ParagraphStyle('CV', fontName='Helvetica', fontSize=9, leading=12)
         estilo_letras = ParagraphStyle('LC', fontName='Helvetica-Oblique', fontSize=9, leading=12)
