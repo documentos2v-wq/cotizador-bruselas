@@ -87,7 +87,7 @@ with col3:
 
 st.markdown("---")
 
-# --- SECCIÓN 2: DETALLE DE PRODUCTOS (TABLA DINÁMICA) ---
+# --- SECCIÓN 2: DETALLE DE PRODUCTOS ---
 st.subheader("2. Detalle de Productos (Casillas de Precios Unitarios y Cantidades)")
 
 if 'productos_df' not in st.session_state:
@@ -136,10 +136,25 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
+# --- FUNCIÓN PARA DIBUJAR EL PIE DE PÁGINA EN EL PDF ---
+def agregar_pie_pagina(canvas, doc):
+    canvas.saveState()
+    # Coordenadas y tamaño de la franja azul en el pie de página
+    canvas.setFillColor(colors.HexColor("#003366"))
+    canvas.rect(0, 0, 612, 35, fill=1, stroke=0) # Ancho carta = 612, alto de franja = 35
+    
+    # Texto en blanco centrado dentro de la franja
+    canvas.setFillColor(colors.white)
+    canvas.setFont("Helvetica-Bold", 8)
+    texto_pie = "CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS - 917386419 - www.ventasschag.com"
+    canvas.drawCentredString(612 / 2.0, 13, texto_pie)
+    canvas.restoreState()
+
 # --- FUNCIÓN PARA GENERAR EL PDF ---
 def generar_pdf():
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    # Margen inferior más amplio (50) para que el contenido no se encime con el pie de página
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=50)
     elements = []
     
     styles = getSampleStyleSheet()
@@ -147,7 +162,6 @@ def generar_pdf():
     estilo_blanco = ParagraphStyle('BlancoCustom', parent=styles['Normal'], fontSize=9, leading=11, fontName="Helvetica-Bold", textColor=colors.white)
     estilo_letras = ParagraphStyle('LetrasCustom', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Oblique")
     
-    # Estilos seguros para celdas de la tabla (evita encimado de textos)
     estilo_th = ParagraphStyle('TH', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Bold", textColor=colors.white, alignment=1)
     estilo_td_left = ParagraphStyle('TDL', parent=styles['Normal'], fontSize=8, leading=10, alignment=0)
     estilo_td_center = ParagraphStyle('TDC', parent=styles['Normal'], fontSize=8, leading=10, alignment=1)
@@ -162,7 +176,6 @@ def generar_pdf():
     subtotal = importe_total_general / 1.18
     igv = importe_total_general - subtotal
     
-    # Datos de cliente y cabecera (con texto blanco en la sección derecha)
     info_data = [
         [Paragraph(f"<b>CODIGO:</b> {codigo_ref}", estilo_normal), Paragraph(f"<b>FECHA:</b> {fecha.strftime('%d/%m/%Y')}", estilo_blanco)],
         [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotizacion}", estilo_blanco)],
@@ -181,7 +194,6 @@ def generar_pdf():
     elements.append(t_info)
     elements.append(Spacer(1, 15))
     
-    # Tabla de Productos con párrafos formateados para evitar superposición
     prod_data = [[
         Paragraph("CANT.", estilo_th),
         Paragraph("CODIGO", estilo_th),
@@ -216,7 +228,6 @@ def generar_pdf():
     ]))
     elements.append(t_prod)
     
-    # Fila de Total en Letras
     letras_data = [[Paragraph(f"<b>SON:</b> &nbsp; <i>{monto_en_letras}</i>", estilo_letras)]]
     t_letras = Table(letras_data, colWidths=[530])
     t_letras.setStyle(TableStyle([
@@ -228,7 +239,6 @@ def generar_pdf():
     elements.append(t_letras)
     elements.append(Spacer(1, 10))
     
-    # Totales (Importe, IGV, Total)
     totales_data = [
         ["IMPORTE", f"S/ {subtotal:,.2f}"],
         ["IGV", f"S/ {igv:,.2f}"],
@@ -251,7 +261,6 @@ def generar_pdf():
     elements.append(wrapper_totales)
     elements.append(Spacer(1, 15))
     
-    # Condiciones comerciales
     cond_data = [
         [Paragraph("<b>TIEMPO ENTREGA</b>", estilo_normal), f": {tiempo_entrega}"],
         [Paragraph("<b>RAZÓN SOCIAL</b>", estilo_normal), ": BRUSELAS GROUP EIRL"],
@@ -266,7 +275,8 @@ def generar_pdf():
     t_cond.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
     elements.append(t_cond)
     
-    doc.build(elements)
+    # Construir el documento aplicando el pie de página en cada hoja
+    doc.build(elements, onFirstPage=agregar_pie_pagina, onLaterPages=agregar_pie_pagina)
     buffer.seek(0)
     return buffer
 
