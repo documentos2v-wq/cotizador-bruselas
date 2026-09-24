@@ -8,6 +8,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import streamlit as st
+from PIL import Image as PILImage
 
 # Configuración de la página de Streamlit
 st.set_page_config(page_title="Generador de Cotizaciones - Bruselas", layout="wide")
@@ -330,28 +331,46 @@ def generar_pdf():
     ]))
     elements.append(t_prod)
     
-    # --- FUNCIÓN PARA DIBUJAR FONDO CELESTE, LOGO COMO MARCA DE AGUA Y BLOQUE INFERIOR ---
-    subtotal = importe_total_general / 1.18
-    igv = importe_total_general - subtotal
+    # --- PRIMERO: CREAR LA MARCA DE AGUA CON TRANSPARENCIA (ALPHA) ---
+    watermark_path = None
+    if os.path.exists("logo.png"):
+        try:
+            img_pil = PILImage.open("logo.png").convert("RGBA")
+            # Ajustamos la transparencia (alpha) al 15% para que sea una marca de agua muy suave al fondo
+            alpha = img_pil.split()[3]
+            alpha = PILImage.eval(alpha, lambda a: int(a * 0.15))
+            img_pil.putalpha(alpha)
+            watermark_path = "temp_watermark.png"
+            img_pil.save(watermark_path)
+        except:
+            pass
 
-    def dibujar_fondo_y_elementos(canvas, doc):
+    # --- FUNCIÓN PARA DIBUJAR FONDO, MARCA DE AGUA Y BLOQUE INFERIOR ANTES DE LOS TEXTOS ---
+    def dibujar_fondo_y_marca_de_agua(canvas, doc):
         canvas.saveState()
         
-        # 1. Color de fondo de la página idéntico al de la imagen del logo (#F2F6F9)
+        # 1. Color de fondo de la página
         canvas.setFillColor(colors.HexColor("#F2F6F9"))
         canvas.rect(0, 0, 612, 792, fill=1, stroke=0)
         
-        # 2. Logotipo como marca de agua semitransparente centrada en el fondo (si se subió logo.png)
-        if os.path.exists("logo.png"):
+        # 2. Logotipo como marca de agua semitransparente al fondo
+        if watermark_path and os.path.exists(watermark_path):
             try:
-                canvas.saveState()
-                # Posicionar y dibujar el logo grande en el centro de la página con transparencia si es soportada
-                canvas.drawImage("logo.png", 156, 280, width=300, height=300, mask='auto', preserveAspectRatio=True)
-                canvas.restoreState()
+                # Centrado en la hoja (ancho 612, alto 792 -> centrado en x=106, y=246 de tamaño 400x400)
+                canvas.drawImage(watermark_path, 106, 246, width=400, height=400, mask='auto', preserveAspectRatio=True)
             except:
                 pass
+                
+        canvas.restoreState()
+
+    # --- FUNCIÓN PARA DIBUJAR LOS ELEMENTOS FIJOS SUPERIORES E INFERIORES ---
+    subtotal = importe_total_general / 1.18
+    igv = importe_total_general - subtotal
+
+    def dibujar_elementos_fijos(canvas, doc):
+        canvas.saveState()
         
-        # 3. Franja Azul del Pie de Página
+        # Franja Azul del Pie de Página
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.rect(0, 0, 612, 35, fill=1, stroke=0)
         canvas.setFillColor(colors.white)
@@ -359,7 +378,7 @@ def generar_pdf():
         texto_pie = "CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS - 917386419 - www.ventasschag.com"
         canvas.drawCentredString(612 / 2.0, 13, texto_pie)
         
-        # 4. Bloque inferior con tipografía unificada
+        # Bloque inferior con tipografía unificada
         estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-Bold', fontSize=9, leading=12)
         estilo_c_val = ParagraphStyle('CV', fontName='Helvetica', fontSize=9, leading=12)
         estilo_letras = ParagraphStyle('LC', fontName='Helvetica-Oblique', fontSize=9, leading=12)
@@ -427,14 +446,25 @@ def generar_pdf():
         
         canvas.restoreState()
 
-    doc.build(elements, onFirstPage=dibujar_fondo_y_elementos, onLaterPages=dibujar_fondo_y_elementos)
+    # Combinamos para que el fondo se pinte primero (detrás de todo) y los elementos fijos después
+    def on_page(canvas, doc):
+        dibujar_fondo_y_marca_de_agua(canvas, doc)
+        dibujar_elementos_fijos(canvas, doc)
+
+    doc.build(elements, onFirstPage=on_page, onLaterPages=on_page)
     
+    # Limpieza de archivos temporales
     for p in temp_img_paths:
         if os.path.exists(p):
             try:
                 os.remove(p)
             except:
                 pass
+    if watermark_path and os.path.exists(watermark_path):
+        try:
+            os.remove(watermark_path)
+        except:
+            pass
 
     buffer.seek(0)
     return buffer
