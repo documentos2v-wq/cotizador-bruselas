@@ -73,6 +73,10 @@ def numero_a_letras(monto):
     decimales_str = f"{parte_decimal:02d}/100"
     return f"{texto_enteras} CON {decimales_str}"
 
+# --- GESTIÓN DE CORRELATIVO AUTOMÁTICO PARA EL NÚMERO DE COTIZACIÓN ---
+if 'nro_secuencial' not in st.session_state:
+    st.session_state.nro_secuencial = 5960
+
 # --- SECCIÓN 1: DATOS GENERALES Y CONSULTA RUC SUNAT ---
 st.subheader("1. Información del Cliente y Cotización (Búsqueda Automática RUC)")
 
@@ -86,7 +90,9 @@ if 'direccion_input' not in st.session_state:
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    nro_cotizacion = st.text_input("N° de Cotización", "000-5960")
+    # Formato automático con ceros a la izquierda (ej. 000-5960)
+    nro_cotizacion_actual = f"000-{st.session_state.nro_secuencial}"
+    nro_cotizacion = st.text_input("N° de Cotización (Correlativo Automático)", value=nro_cotizacion_actual, disabled=True)
     
     ruc = st.text_input("RUC del Cliente", value=st.session_state.ruc_input)
     if st.button("🔍 Consultar RUC en SUNAT"):
@@ -97,13 +103,11 @@ with col1:
                     data = response.json()
                     st.session_state.cliente_input = data.get("razonSocial", "")
                     
-                    # Extracción detallada de dirección, distrito, provincia y departamento
                     dir_sunat = data.get("direccion", "").strip()
                     distrito = data.get("distrito", "").strip()
                     provincia = data.get("provincia", "").strip()
                     departamento = data.get("departamento", "").strip()
                     
-                    # Unimos componentes de forma limpia evitando duplicados si la API ya los trae
                     partes_dir = [dir_sunat]
                     if distrito and distrito.upper() not in dir_sunat.upper():
                         partes_dir.append(distrito)
@@ -115,7 +119,7 @@ with col1:
                     direccion_completa = " - ".join([p for p in partes_dir if p])
                     st.session_state.direccion_input = direccion_completa if direccion_completa else dir_sunat
                     
-                    st.success("¡Datos y dirección completa (Provincia y Región) obtenidos de SUNAT!")
+                    st.success("¡Datos y dirección completa obtenidos de SUNAT!")
                     st.rerun()
                 else:
                     st.warning("No se encontró información para el RUC ingresado.")
@@ -223,15 +227,16 @@ def generar_pdf():
     estilo_td_center = ParagraphStyle('TDC', parent=styles['Normal'], fontSize=8, leading=10, alignment=1)
     estilo_td_right = ParagraphStyle('TDR', parent=styles['Normal'], fontSize=8, leading=10, alignment=2)
     
-    # Encabezado Empresa
-    elements.append(Paragraph("<b>BRUSELAS GROUP EIRL</b>", ParagraphStyle('EmpresaGrande', fontSize=22, leading=26, textColor=colors.HexColor("#003366"), fontName="Helvetica-Bold")))
+    # Encabezado Empresa (Título imponente, tamaño duplicado: 32 pt)
+    elements.append(Paragraph("<b>BRUSELAS GROUP EIRL</b>", ParagraphStyle('EmpresaGigante', fontSize=32, leading=36, textColor=colors.HexColor("#003366"), fontName="Helvetica-Bold")))
+    elements.append(Spacer(1, 4))
     elements.append(Paragraph("CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS", estilo_normal))
     elements.append(Paragraph("RUC: 20611576456 | ventasschag@gmail.com | (051) 6514075 / +51 917 386 419", estilo_normal))
     elements.append(Spacer(1, 10))
     
     info_data = [
         [Paragraph(f"<b>CODIGO:</b> {codigo_ref}", estilo_normal), Paragraph(f"<b>FECHA:</b> {fecha.strftime('%d/%m/%Y')}", estilo_blanco)],
-        [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotizacion}", estilo_blanco)],
+        [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotizacion_actual}", estilo_blanco)],
         [Paragraph(f"<b>DIRECCION:</b> {direccion}", estilo_normal), ""],
         [Paragraph(f"<b>RUC:</b> {ruc}", estilo_normal), ""]
     ]
@@ -422,10 +427,17 @@ def generar_pdf():
 st.markdown("---")
 if st.button("📥 Generar y Descargar Cotización en PDF"):
     pdf_file = generar_pdf()
-    st.success("¡Cotización generada con éxito!")
+    
+    # Nombre de archivo sin ceros a la izquierda (Ej: Cotizacion_5960.pdf)
+    nombre_archivo_pdf = f"Cotizacion_{st.session_state.nro_secuencial}.pdf"
+    
+    # Incrementamos automáticamente el correlativo para la siguiente cotización
+    st.session_state.nro_secuencial += 1
+    
+    st.success("¡Cotización generada con éxito y número correlativo actualizado!")
     st.download_button(
         label="Descargar Archivo PDF",
         data=pdf_file,
-        file_name=f"Cotizacion_{nro_cotizacion.replace('-', '_')}.pdf",
+        file_name=nombre_archivo_pdf,
         mime="application/pdf"
     )
