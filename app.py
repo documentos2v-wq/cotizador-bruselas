@@ -139,11 +139,9 @@ with c2:
 # --- FUNCIÓN PARA DIBUJAR EL PIE DE PÁGINA EN EL PDF ---
 def agregar_pie_pagina(canvas, doc):
     canvas.saveState()
-    # Coordenadas y tamaño de la franja azul en el pie de página
     canvas.setFillColor(colors.HexColor("#003366"))
-    canvas.rect(0, 0, 612, 35, fill=1, stroke=0) # Ancho carta = 612, alto de franja = 35
+    canvas.rect(0, 0, 612, 35, fill=1, stroke=0)
     
-    # Texto en blanco centrado dentro de la franja
     canvas.setFillColor(colors.white)
     canvas.setFont("Helvetica-Bold", 8)
     texto_pie = "CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS - 917386419 - www.ventasschag.com"
@@ -153,7 +151,6 @@ def agregar_pie_pagina(canvas, doc):
 # --- FUNCIÓN PARA GENERAR EL PDF ---
 def generar_pdf():
     buffer = io.BytesIO()
-    # Margen inferior más amplio (50) para que el contenido no se encime con el pie de página
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=50)
     elements = []
     
@@ -161,6 +158,10 @@ def generar_pdf():
     estilo_normal = ParagraphStyle('NormalCustom', parent=styles['Normal'], fontSize=9, leading=11)
     estilo_blanco = ParagraphStyle('BlancoCustom', parent=styles['Normal'], fontSize=9, leading=11, fontName="Helvetica-Bold", textColor=colors.white)
     estilo_letras = ParagraphStyle('LetrasCustom', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Oblique")
+    
+    # Estilos reducidos para las condiciones comerciales
+    estilo_cond_label = ParagraphStyle('CondLabel', parent=styles['Normal'], fontSize=7, leading=9, fontName="Helvetica-Bold")
+    estilo_cond_value = ParagraphStyle('CondValue', parent=styles['Normal'], fontSize=7, leading=9)
     
     estilo_th = ParagraphStyle('TH', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Bold", textColor=colors.white, alignment=1)
     estilo_td_left = ParagraphStyle('TDL', parent=styles['Normal'], fontSize=8, leading=10, alignment=0)
@@ -259,23 +260,29 @@ def generar_pdf():
     
     wrapper_totales = Table([["", t_totales]], colWidths=[330, 200])
     elements.append(wrapper_totales)
-    elements.append(Spacer(1, 15))
     
+    # Espaciador más grande para empujar las condiciones comerciales más hacia abajo
+    elements.append(Spacer(1, 25))
+    
+    # Condiciones comerciales con letra más pequeña y compacta
     cond_data = [
-        [Paragraph("<b>TIEMPO ENTREGA</b>", estilo_normal), f": {tiempo_entrega}"],
-        [Paragraph("<b>RAZÓN SOCIAL</b>", estilo_normal), ": BRUSELAS GROUP EIRL"],
-        [Paragraph("<b>FORMA DE PAGO</b>", estilo_normal), f": {forma_pago}"],
-        [Paragraph("<b>MONEDA</b>", estilo_normal), f": {moneda}"],
-        [Paragraph("<b>VALIDEZ DE OFERTA</b>", estilo_normal), f": {validez}"],
-        [Paragraph("<b>GARANTÍA</b>", estilo_normal), f": {garantia}"],
-        [Paragraph("<b>EJECUTIVO DE VENTAS</b>", estilo_normal), f": {ejecutivo}"]
+        [Paragraph("TIEMPO ENTREGA", estilo_cond_label), Paragraph(f": {tiempo_entrega}", estilo_cond_value)],
+        [Paragraph("RAZÓN SOCIAL", estilo_cond_label), Paragraph(": BRUSELAS GROUP EIRL", estilo_cond_value)],
+        [Paragraph("FORMA DE PAGO", estilo_cond_label), Paragraph(f": {forma_pago}", estilo_cond_value)],
+        [Paragraph("MONEDA", estilo_cond_label), Paragraph(f": {moneda}", estilo_cond_value)],
+        [Paragraph("VALIDEZ DE OFERTA", estilo_cond_label), Paragraph(f": {validez}", estilo_cond_value)],
+        [Paragraph("GARANTÍA", estilo_cond_label), Paragraph(f": {garantia}", estilo_cond_value)],
+        [Paragraph("EJECUTIVO DE VENTAS", estilo_cond_label), Paragraph(f": {ejecutivo}", estilo_cond_value)]
     ]
     
-    t_cond = Table(cond_data, colWidths=[130, 300])
-    t_cond.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
+    t_cond = Table(cond_data, colWidths=[110, 250])
+    t_cond.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING', (0,0), (-1,-1), 1),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+    ]))
     elements.append(t_cond)
     
-    # Construir el documento aplicando el pie de página en cada hoja
     doc.build(elements, onFirstPage=agregar_pie_pagina, onLaterPages=agregar_pie_pagina)
     buffer.seek(0)
     return buffer
