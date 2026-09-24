@@ -15,8 +15,6 @@ st.markdown("---")
 
 # --- FUNCIÓN PARA CONVERTIR NÚMEROS A LETRAS ---
 def numero_a_letras(monto):
-    """Convierte un número decimal a formato de letras en Soles."""
-    # Librería interna simple para convertir números (versión estándar)
     unidades = ("", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE")
     decenas = ("", "DIEZ", "VEINTE", "TREINTA", "CUARENTA", "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA")
     diez_a_veinte = ("DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISEIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE")
@@ -33,7 +31,6 @@ def numero_a_letras(monto):
     elif parte_enteras == 1000:
         texto_enteras = "UN MIL"
     else:
-        # Conversión simplificada para montos comunes de cotización (hasta 999,999)
         miles = parte_enteras // 1000
         cientos = parte_enteras % 1000
         
@@ -90,21 +87,39 @@ with col3:
 
 st.markdown("---")
 
-# --- SECCIÓN 2: DETALLE DE PRODUCTOS / ÍTEMS ---
-st.subheader("2. Detalle de Productos")
+# --- SECCIÓN 2: DETALLE DE PRODUCTOS (TABLA DINÁMICA) ---
+st.subheader("2. Detalle de Productos (Puedes agregar varias filas)")
 
-cant = st.number_input("Cantidad", min_value=1, value=20)
-codigo_prod = st.text_input("Código de Producto", "COCH4")
-descripcion = st.text_area("Descripción del Producto", "REPRODUCTOR / EQUIPO TECNOLÓGICO ESPECIALIZADO")
-marca = st.text_input("Marca", "NACIONAL")
-plazo_entrega = st.text_input("Plazo de Entrega (días)", "10")
-precio_unitario = st.number_input("Precio Unitario (P.U.) con IGV", min_value=0.0, value=399.90)
+# Inicializamos los datos por defecto si no existen
+if 'productos_df' not in st.session_state:
+    st.session_state.productos_df = pd.DataFrame([
+        {
+            "Cantidad": 20,
+            "Código": "COCH4",
+            "Descripción": "REPRODUCTOR / EQUIPO TECNOLÓGICO ESPECIALIZADO",
+            "Marca": "NACIONAL",
+            "Plazo Entrega": "10",
+            "P.U. (Inc. IGV)": 399.90
+        }
+    ])
 
-# Cálculo automático de importes
-importe_total_item = cant * precio_unitario
-monto_en_letras = numero_a_letras(importe_total_item)
+# Tabla interactiva donde el usuario puede añadir/quitar filas y editar datos
+df_editado = st.data_editor(
+    st.session_state.productos_df,
+    num_rows="dynamic",
+    use_container_width=True,
+    column_config={
+        "Cantidad": st.column_config.NumberColumn("Cantidad", min_value=1, step=1),
+        "P.U. (Inc. IGV)": st.column_config.NumberColumn("P.U. (Inc. IGV)", min_value=0.0, format="S/ %.2f")
+    }
+)
 
-st.info(f"**Importe Total calculado:** S/ {importe_total_item:,.2f}  \n**En Letras:** *{monto_en_letras}*")
+# Cálculos automáticos sumando todos los productos ingresados
+df_editado['Importe'] = df_editado['Cantidad'] * df_editado['P.U. (Inc. IGV)']
+importe_total_general = df_editado['Importe'].sum()
+monto_en_letras = numero_a_letras(importe_total_general)
+
+st.info(f"**Importe Total General calculado:** S/ {importe_total_general:,.2f}  \n**En Letras:** *{monto_en_letras}*")
 
 st.markdown("---")
 
@@ -120,7 +135,7 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF ---
+# --- FUNCIÓN PARA GENERAR EL PDF CON MÚLTIPLES PRODUCTOS ---
 def generar_pdf():
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -128,7 +143,6 @@ def generar_pdf():
     
     styles = getSampleStyleSheet()
     estilo_normal = ParagraphStyle('NormalCustom', parent=styles['Normal'], fontSize=9, leading=11)
-    estilo_bold = ParagraphStyle('BoldCustom', parent=styles['Normal'], fontSize=9, leading=11, fontName="Helvetica-Bold")
     estilo_letras = ParagraphStyle('LetrasCustom', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Oblique")
     
     # Encabezado Empresa
@@ -137,8 +151,8 @@ def generar_pdf():
     elements.append(Paragraph("RUC: 20611576456 | ventasschag@gmail.com | (051) 6514075 / +51 917 386 419", estilo_normal))
     elements.append(Spacer(1, 10))
     
-    subtotal = importe_total_item / 1.18
-    igv = importe_total_item - subtotal
+    subtotal = importe_total_general / 1.18
+    igv = importe_total_general - subtotal
     
     # Datos de cliente y cabecera
     info_data = [
@@ -157,11 +171,22 @@ def generar_pdf():
     elements.append(t_info)
     elements.append(Spacer(1, 15))
     
-    # Tabla de Productos
-    prod_data = [
-        ["CANT.", "CODIGO", "DESCRIPCION", "MARCA", "PLAZO ENTREGA", "P.U.", "IMPORTE"],
-        [str(cant), codigo_prod, descripcion, marca, plazo_entrega, f"S/ {precio_unitario:,.2f}", f"S/ {importe_total_item:,.2f}"]
-    ]
+    # Construcción dinámica de la tabla de productos para el PDF
+    prod_data = [["CANT.", "CODIGO", "DESCRIPCION", "MARCA", "PLAZO ENTREGA", "P.U.", "IMPORTE"]]
+    
+    for _, row in df_editado.iterrows():
+        cant_val = int(row['Cantidad'])
+        pu_val = float(row['P.U. (Inc. IGV)'])
+        imp_val = cant_val * pu_val
+        prod_data.append([
+            str(cant_val),
+            str(row['Código']),
+            str(row['Descripción']),
+            str(row['Marca']),
+            str(row['Plazo Entrega']),
+            f"S/ {pu_val:,.2f}",
+            f"S/ {imp_val:,.2f}"
+        ])
     
     t_prod = Table(prod_data, colWidths=[40, 60, 210, 50, 60, 50, 60])
     t_prod.setStyle(TableStyle([
@@ -175,7 +200,7 @@ def generar_pdf():
     ]))
     elements.append(t_prod)
     
-    # Fila de Total en Letras justo debajo de la tabla (igual al formato original)
+    # Fila de Total en Letras
     letras_data = [[Paragraph(f"<b>SON:</b> &nbsp; <i>{monto_en_letras}</i>", estilo_letras)]]
     t_letras = Table(letras_data, colWidths=[530])
     t_letras.setStyle(TableStyle([
@@ -191,7 +216,7 @@ def generar_pdf():
     totales_data = [
         ["IMPORTE", f"S/ {subtotal:,.2f}"],
         ["IGV", f"S/ {igv:,.2f}"],
-        ["TOTAL", f"S/ {importe_total_item:,.2f}"]
+        ["TOTAL", f"S/ {importe_total_general:,.2f}"]
     ]
     
     t_totales = Table(totales_data, colWidths=[100, 100])
