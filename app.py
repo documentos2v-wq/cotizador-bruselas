@@ -136,10 +136,9 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON BLOQUE INFERIOR FIJO ---
+# --- FUNCIÓN PARA GENERAR EL PDF ---
 def generar_pdf():
     buffer = io.BytesIO()
-    # Márgenes estándar, el bloque inferior se dibuja de forma absoluta en el canvas
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     elements = []
     
@@ -152,8 +151,8 @@ def generar_pdf():
     estilo_td_center = ParagraphStyle('TDC', parent=styles['Normal'], fontSize=8, leading=10, alignment=1)
     estilo_td_right = ParagraphStyle('TDR', parent=styles['Normal'], fontSize=8, leading=10, alignment=2)
     
-    # Encabezado Empresa
-    elements.append(Paragraph("<b>BRUSELAS GROUP EIRL</b>", ParagraphStyle('Empresa', fontSize=18, leading=20, textColor=colors.HexColor("#003366"), fontName="Helvetica-Bold")))
+    # Encabezado Empresa (Título Principal con tamaño de letra mucho más grande)
+    elements.append(Paragraph("<b>BRUSELAS GROUP EIRL</b>", ParagraphStyle('EmpresaGrande', fontSize=22, leading=26, textColor=colors.HexColor("#003366"), fontName="Helvetica-Bold")))
     elements.append(Paragraph("CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS", estilo_normal))
     elements.append(Paragraph("RUC: 20611576456 | ventasschag@gmail.com | (051) 6514075 / +51 917 386 419", estilo_normal))
     elements.append(Spacer(1, 10))
@@ -210,7 +209,7 @@ def generar_pdf():
     ]))
     elements.append(t_prod)
     
-    # --- FUNCIÓN PARA DIBUJAR EL BLOQUE INFERIOR FIJO Y EL PIE DE PÁGINA ---
+    # --- FUNCIÓN PARA DIBUJAR EL BLOQUE INFERIOR SIN RECUADRO Y EL PIE DE PÁGINA ---
     subtotal = importe_total_general / 1.18
     igv = importe_total_general - subtotal
 
@@ -225,8 +224,7 @@ def generar_pdf():
         texto_pie = "CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS - 917386419 - www.ventasschag.com"
         canvas.drawCentredString(612 / 2.0, 13, texto_pie)
         
-        # 2. Construcción de la Tabla Inferior (Condiciones, Totales y Letras) en posición fija
-        # Estilos internos para el bloque inferior
+        # 2. Construcción de la Tabla Inferior (Condiciones, Totales y Letras) SIN RECUADRO EXTERIOR
         estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-Bold', fontSize=7, leading=9)
         estilo_c_val = ParagraphStyle('CV', fontName='Helvetica', fontSize=7, leading=9)
         estilo_letras = ParagraphStyle('LC', fontName='Helvetica-Oblique', fontSize=7, leading=9)
@@ -248,6 +246,7 @@ def generar_pdf():
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
             ('TOPPADDING', (0,0), (-1,-1), 0),
             ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
         ]))
         
         # Datos de Totales (Derecha)
@@ -272,16 +271,18 @@ def generar_pdf():
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F9F9F9")),
             ('TOPPADDING', (0,0), (-1,-1), 3),
             ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('LEFTPADDING', (0,0), (-1,-1), 6),
         ]))
         
         # Contenedor Maestro inferior que une Condiciones (izq) y Totales (der)
         master_top_row = Table([[t_cond_pdf, t_tot_pdf]], colWidths=[325, 207])
         master_top_row.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
             ('RIGHTPADDING', (0,0), (0,0), 10),
         ]))
         
-        master_block = Table([[master_top_row], [Spacer(1, 4)], [t_let_pdf]], colWidths=[532])
+        master_block = Table([[master_top_row], [Spacer(1, 6)], [t_let_pdf]], colWidths=[532])
         master_block.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
             ('LEFTPADDING', (0,0), (-1,-1), 0),
@@ -290,20 +291,9 @@ def generar_pdf():
             ('BOTTOMPADDING', (0,0), (-1,-1), 0),
         ]))
         
-        # Envoltorio con caja roja sutil (igual al recuadro de referencia) para alinear perfectamente
-        box_container = Table([[master_block]], colWidths=[552])
-        box_container.setStyle(TableStyle([
-            ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#999999")),
-            ('BACKGROUND', (0,0), (-1,-1), colors.white),
-            ('TOPPADDING', (0,0), (-1,-1), 6),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-            ('LEFTPADDING', (0,0), (-1,-1), 10),
-            ('RIGHTPADDING', (0,0), (-1,-1), 10),
-        ]))
-        
-        # Posición fija exacta desde la esquina inferior izquierda de la página (X=30, Y=45)
-        box_container.wrapOn(canvas, 552, 200)
-        box_container.drawOn(canvas, 30, 45)
+        # Posición fija exacta sin ningún recuadro exterior feo, libre y limpio sobre la página
+        master_block.wrapOn(canvas, 532, 200)
+        master_block.drawOn(canvas, 30, 45)
         
         canvas.restoreState()
 
