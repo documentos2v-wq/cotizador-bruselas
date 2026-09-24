@@ -1,9 +1,10 @@
 from datetime import datetime
 import io
+import os
 import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import streamlit as st
 
@@ -88,7 +89,7 @@ with col3:
 st.markdown("---")
 
 # --- SECCIÓN 2: DETALLE DE PRODUCTOS ---
-st.subheader("2. Detalle de Productos (Casillas de Precios Unitarios y Cantidades)")
+st.subheader("2. Detalle de Productos, Precios y Subida de Imágenes (1.5 x 1.5 cm)")
 
 if 'productos_df' not in st.session_state:
     st.session_state.productos_df = pd.DataFrame([
@@ -111,6 +112,24 @@ df_editado = st.data_editor(
         "P.U. (Inc. IGV)": st.column_config.NumberColumn("P.U. (Inc. IGV)", min_value=0.0, format="S/ %.2f")
     }
 )
+
+st.markdown("#### 📷 Adjuntar Imágenes por Ítem (Opcional)")
+st.info("Sube una imagen para el producto según el número de fila (la Fila 1 corresponde al primer producto de la tabla superior, la Fila 2 al segundo, etc.).")
+
+if 'imagenes_items' not in st.session_state:
+    st.session_state.imagenes_items = {}
+
+num_filas = len(df_editado)
+for i in range(num_filas):
+    desc_actual = df_editado.iloc[i]['Descripción']
+    if pd.isna(desc_actual) or desc_actual == "":
+        desc_actual = f"Ítem {i+1}"
+    
+    archivo_subido = st.file_uploader(f"Imagen para el Producto Fila {i+1}: {desc_actual}", type=["png", "jpg", "jpeg"], key=f"img_fila_{i}")
+    if archivo_subido is not None:
+        st.session_state.imagenes_items[i] = archivo_subido
+    elif i not in st.session_state.imagenes_items:
+        st.session_state.imagenes_items[i] = None
 
 df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
 df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
@@ -177,9 +196,11 @@ def generar_pdf():
     elements.append(t_info)
     elements.append(Spacer(1, 15))
     
+    # Añadimos la columna "IMAGEN" en la cabecera de la tabla
     prod_data = [[
         Paragraph("CANT.", estilo_th),
         Paragraph("CODIGO", estilo_th),
+        Paragraph("IMAGEN", estilo_th),
         Paragraph("DESCRIPCION", estilo_th),
         Paragraph("MARCA", estilo_th),
         Paragraph("PLAZO ENTREGA", estilo_th),
@@ -187,13 +208,28 @@ def generar_pdf():
         Paragraph("IMPORTE", estilo_th)
     ]]
     
-    for _, row in df_limpio.iterrows():
+    temp_img_paths = []
+    
+    for idx, row in df_limpio.iterrows():
         cant_val = int(row['Cantidad'])
         pu_val = float(row['P.U. (Inc. IGV)'])
         imp_val = cant_val * pu_val
+        
+        # Procesar imagen si se adjuntó para esta fila
+        img_element = Paragraph("-", estilo_td_center)
+        if idx in st.session_state.imagenes_items and st.session_state.imagenes_items[idx] is not None:
+            img_file = st.session_state.imagenes_items[idx]
+            tmp_path = f"temp_img_{idx}.png"
+            with open(tmp_path, "wb") as f:
+                f.write(img_file.getbuffer())
+            temp_img_paths.append(tmp_path)
+            # 1.5 cm x 1.5 cm equivalen a 42.5 x 42.5 puntos
+            img_element = RLImage(tmp_path, width=42.5, height=42.5)
+        
         prod_data.append([
             Paragraph(str(cant_val), estilo_td_center),
             Paragraph(str(row['Código']) if pd.notna(row['Código']) else "", estilo_td_center),
+            img_element,
             Paragraph(str(row['Descripción']) if pd.notna(row['Descripción']) else "", estilo_td_left),
             Paragraph(str(row['Marca']) if pd.notna(row['Marca']) else "", estilo_td_center),
             Paragraph(str(row['Plazo Entrega']) if pd.notna(row['Plazo Entrega']) else "", estilo_td_center),
@@ -201,17 +237,19 @@ def generar_pdf():
             Paragraph(f"S/ {imp_val:,.2f}", estilo_td_right)
         ])
     
-    t_prod = Table(prod_data, colWidths=[40, 60, 212, 50, 60, 60, 70])
+    # Anchos de columna ajustados para la nueva columna de imagen (Total 552)
+    t_prod = Table(prod_data, colWidths=[35, 55, 50, 152, 50, 60, 60, 90])
     t_prod.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#003366")),
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (2,1), (2,-1), 'CENTER'),
         ('TOPPADDING', (0,0), (-1,-1), 4),
         ('BOTTOMPADDING', (0,0), (-1,-1), 4),
     ]))
     elements.append(t_prod)
     
-    # --- FUNCIÓN PARA DIBUJAR EL BLOQUE INFERIOR CON TAMAÑOS ESTÉTICOS Y UNIFICADOS ---
+    # --- FUNCIÓN PARA DIBUJAR EL BLOQUE INFERIOR FIJO Y EL PIE DE PÁGINA ---
     subtotal = importe_total_general / 1.18
     igv = importe_total_general - subtotal
 
@@ -226,14 +264,13 @@ def generar_pdf():
         texto_pie = "CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS - 917386419 - www.ventasschag.com"
         canvas.drawCentredString(612 / 2.0, 13, texto_pie)
         
-        # 2. Bloque inferior con tipografía unificada y estética (Tamaño 9 para guardar proporción con arriba)
+        # 2. Bloque inferior con tipografía unificada
         estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-Bold', fontSize=9, leading=12)
         estilo_c_val = ParagraphStyle('CV', fontName='Helvetica', fontSize=9, leading=12)
         estilo_letras = ParagraphStyle('LC', fontName='Helvetica-Oblique', fontSize=9, leading=12)
         estilo_tot_lbl = ParagraphStyle('TL', fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=colors.white, alignment=0)
         estilo_tot_val = ParagraphStyle('TV', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=2)
         
-        # Condiciones Comerciales (Izquierda)
         cond_rows = [
             [Paragraph("TIEMPO ENTREGA", estilo_c_label), Paragraph(f": {tiempo_entrega}", estilo_c_val)],
             [Paragraph("RAZÓN SOCIAL", estilo_c_label), Paragraph(": BRUSELAS GROUP EIRL", estilo_c_val)],
@@ -251,7 +288,6 @@ def generar_pdf():
             ('LEFTPADDING', (0,0), (-1,-1), 0),
         ]))
         
-        # Totales (Derecha)
         tot_rows = [
             [Paragraph("IMPORTE", estilo_tot_lbl), Paragraph(f"S/ {subtotal:,.2f}", estilo_tot_val)],
             [Paragraph("IGV", estilo_tot_lbl), Paragraph(f"S/ {igv:,.2f}", estilo_tot_val)],
@@ -266,7 +302,6 @@ def generar_pdf():
             ('BOTTOMPADDING', (0,0), (-1,-1), 3),
         ]))
         
-        # Total en Letras
         t_let_pdf = Table([[Paragraph(f"<b>SON:</b> &nbsp; {monto_en_letras}", estilo_letras)]], colWidths=[552])
         t_let_pdf.setStyle(TableStyle([
             ('BOX', (0,0), (-1,-1), 0.5, colors.black),
@@ -276,7 +311,6 @@ def generar_pdf():
             ('LEFTPADDING', (0,0), (-1,-1), 6),
         ]))
         
-        # Contenedor Maestro inferior
         master_top_row = Table([[t_cond_pdf, t_tot_pdf]], colWidths=[330, 222])
         master_top_row.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -293,13 +327,21 @@ def generar_pdf():
             ('BOTTOMPADDING', (0,0), (-1,-1), 0),
         ]))
         
-        # Dibujar en la posición fija correspondiente (Y ajustada estéticamente para el tamaño 9)
         master_block.wrapOn(canvas, 552, 220)
         master_block.drawOn(canvas, 30, 45)
         
         canvas.restoreState()
 
     doc.build(elements, onFirstPage=dibujar_elementos_fijos, onLaterPages=dibujar_elementos_fijos)
+    
+    # Limpieza de archivos temporales de imágenes
+    for p in temp_img_paths:
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+            except:
+                pass
+
     buffer.seek(0)
     return buffer
 
