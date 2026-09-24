@@ -73,7 +73,7 @@ def numero_a_letras(monto):
     decimales_str = f"{parte_decimal:02d}/100"
     return f"{texto_enteras} CON {decimales_str}"
 
-# --- GESTIÓN DE CORRELATIVO AUTOMÁTICO PARA EL NÚMERO DE COTIZACIÓN ---
+# --- GESTIÓN DE CORRELATIVO AUTOMÁTICO ---
 if 'nro_secuencial' not in st.session_state:
     st.session_state.nro_secuencial = 5960
 
@@ -90,7 +90,6 @@ if 'direccion_input' not in st.session_state:
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    # Formato automático con ceros a la izquierda (ej. 000-5960)
     nro_cotizacion_actual = f"000-{st.session_state.nro_secuencial}"
     nro_cotizacion = st.text_input("N° de Cotización (Correlativo Automático)", value=nro_cotizacion_actual, disabled=True)
     
@@ -227,7 +226,7 @@ def generar_pdf():
     estilo_td_center = ParagraphStyle('TDC', parent=styles['Normal'], fontSize=8, leading=10, alignment=1)
     estilo_td_right = ParagraphStyle('TDR', parent=styles['Normal'], fontSize=8, leading=10, alignment=2)
     
-    # Encabezado Empresa (Título imponente, tamaño duplicado: 32 pt)
+    # Encabezado Empresa (Título imponente, tamaño 32 pt)
     elements.append(Paragraph("<b>BRUSELAS GROUP EIRL</b>", ParagraphStyle('EmpresaGigante', fontSize=32, leading=36, textColor=colors.HexColor("#003366"), fontName="Helvetica-Bold")))
     elements.append(Spacer(1, 4))
     elements.append(Paragraph("CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS", estilo_normal))
@@ -331,13 +330,22 @@ def generar_pdf():
     ]))
     elements.append(t_prod)
     
-    # --- FUNCIÓN PARA DIBUJAR EL BLOQUE INFERIOR FIJO Y EL PIE DE PÁGINA ---
+    # --- FUNCIÓN PARA DIBUJAR EL FONDO (MARCA DE AGUA), BLOQUE INFERIOR Y PIE DE PÁGINA ---
     subtotal = importe_total_general / 1.18
     igv = importe_total_general - subtotal
 
-    def dibujar_elementos_fijos(canvas, doc):
+    def dibujar_fondo_y_elementos(canvas, doc):
         canvas.saveState()
         
+        # 1. Fondo de Marca de Agua Corporativa (Texto centrado grande y muy suave en el fondo)
+        canvas.saveState()
+        canvas.setFillColor(colors.HexColor("#F0F4F8")) # Color gris-azulado muy tenue
+        canvas.setFont("Helvetica-Bold", 55)
+        canvas.rotate(35) # Rotación diagonal elegante
+        canvas.drawCentredString(350, 150, "BRUSELAS GROUP EIRL")
+        canvas.restoreState()
+        
+        # 2. Franja Azul del Pie de Página
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.rect(0, 0, 612, 35, fill=1, stroke=0)
         canvas.setFillColor(colors.white)
@@ -345,6 +353,7 @@ def generar_pdf():
         texto_pie = "CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS - 917386419 - www.ventasschag.com"
         canvas.drawCentredString(612 / 2.0, 13, texto_pie)
         
+        # 3. Bloque inferior con tipografía unificada
         estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-Bold', fontSize=9, leading=12)
         estilo_c_val = ParagraphStyle('CV', fontName='Helvetica', fontSize=9, leading=12)
         estilo_letras = ParagraphStyle('LC', fontName='Helvetica-Oblique', fontSize=9, leading=12)
@@ -412,7 +421,7 @@ def generar_pdf():
         
         canvas.restoreState()
 
-    doc.build(elements, onFirstPage=dibujar_elementos_fijos, onLaterPages=dibujar_elementos_fijos)
+    doc.build(elements, onFirstPage=dibujar_fondo_y_elementos, onLaterPages=dibujar_fondo_y_elementos)
     
     for p in temp_img_paths:
         if os.path.exists(p):
@@ -428,10 +437,7 @@ st.markdown("---")
 if st.button("📥 Generar y Descargar Cotización en PDF"):
     pdf_file = generar_pdf()
     
-    # Nombre de archivo sin ceros a la izquierda (Ej: Cotizacion_5960.pdf)
     nombre_archivo_pdf = f"Cotizacion_{st.session_state.nro_secuencial}.pdf"
-    
-    # Incrementamos automáticamente el correlativo para la siguiente cotización
     st.session_state.nro_secuencial += 1
     
     st.success("¡Cotización generada con éxito y número correlativo actualizado!")
