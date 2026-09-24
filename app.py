@@ -90,7 +90,6 @@ st.markdown("---")
 # --- SECCIÓN 2: DETALLE DE PRODUCTOS (TABLA DINÁMICA) ---
 st.subheader("2. Detalle de Productos (Puedes agregar varias filas)")
 
-# Inicializamos los datos por defecto si no existen
 if 'productos_df' not in st.session_state:
     st.session_state.productos_df = pd.DataFrame([
         {
@@ -103,7 +102,6 @@ if 'productos_df' not in st.session_state:
         }
     ])
 
-# Tabla interactiva donde el usuario puede añadir/quitar filas y editar datos
 df_editado = st.data_editor(
     st.session_state.productos_df,
     num_rows="dynamic",
@@ -114,9 +112,13 @@ df_editado = st.data_editor(
     }
 )
 
-# Cálculos automáticos sumando todos los productos ingresados
-df_editado['Importe'] = df_editado['Cantidad'] * df_editado['P.U. (Inc. IGV)']
-importe_total_general = df_editado['Importe'].sum()
+# Limpiamos las filas que tengan valores vacíos (None) para evitar errores
+df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
+df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
+df_limpio['P.U. (Inc. IGV)'] = pd.to_numeric(df_limpio['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
+
+df_limpio['Importe'] = df_limpio['Cantidad'] * df_limpio['P.U. (Inc. IGV)']
+importe_total_general = df_limpio['Importe'].sum()
 monto_en_letras = numero_a_letras(importe_total_general)
 
 st.info(f"**Importe Total General calculado:** S/ {importe_total_general:,.2f}  \n**En Letras:** *{monto_en_letras}*")
@@ -135,7 +137,7 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON MÚLTIPLES PRODUCTOS ---
+# --- FUNCIÓN PARA GENERAR EL PDF ---
 def generar_pdf():
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -154,7 +156,6 @@ def generar_pdf():
     subtotal = importe_total_general / 1.18
     igv = importe_total_general - subtotal
     
-    # Datos de cliente y cabecera
     info_data = [
         [Paragraph(f"<b>CODIGO:</b> {codigo_ref}", estilo_normal), Paragraph(f"<b>FECHA:</b> {fecha.strftime('%d/%m/%Y')}", estilo_normal)],
         [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotizacion}", estilo_normal)],
@@ -171,19 +172,18 @@ def generar_pdf():
     elements.append(t_info)
     elements.append(Spacer(1, 15))
     
-    # Construcción dinámica de la tabla de productos para el PDF
     prod_data = [["CANT.", "CODIGO", "DESCRIPCION", "MARCA", "PLAZO ENTREGA", "P.U.", "IMPORTE"]]
     
-    for _, row in df_editado.iterrows():
+    for _, row in df_limpio.iterrows():
         cant_val = int(row['Cantidad'])
         pu_val = float(row['P.U. (Inc. IGV)'])
         imp_val = cant_val * pu_val
         prod_data.append([
             str(cant_val),
-            str(row['Código']),
-            str(row['Descripción']),
-            str(row['Marca']),
-            str(row['Plazo Entrega']),
+            str(row['Código']) if pd.notna(row['Código']) else "",
+            str(row['Descripción']) if pd.notna(row['Descripción']) else "",
+            str(row['Marca']) if pd.notna(row['Marca']) else "",
+            str(row['Plazo Entrega']) if pd.notna(row['Plazo Entrega']) else "",
             f"S/ {pu_val:,.2f}",
             f"S/ {imp_val:,.2f}"
         ])
@@ -200,7 +200,6 @@ def generar_pdf():
     ]))
     elements.append(t_prod)
     
-    # Fila de Total en Letras
     letras_data = [[Paragraph(f"<b>SON:</b> &nbsp; <i>{monto_en_letras}</i>", estilo_letras)]]
     t_letras = Table(letras_data, colWidths=[530])
     t_letras.setStyle(TableStyle([
@@ -212,7 +211,6 @@ def generar_pdf():
     elements.append(t_letras)
     elements.append(Spacer(1, 10))
     
-    # Totales (Importe, IGV, Total)
     totales_data = [
         ["IMPORTE", f"S/ {subtotal:,.2f}"],
         ["IGV", f"S/ {igv:,.2f}"],
@@ -233,7 +231,6 @@ def generar_pdf():
     elements.append(wrapper_totales)
     elements.append(Spacer(1, 15))
     
-    # Condiciones comerciales
     cond_data = [
         [Paragraph("<b>TIEMPO ENTREGA</b>", estilo_normal), f": {tiempo_entrega}"],
         [Paragraph("<b>RAZÓN SOCIAL</b>", estilo_normal), ": BRUSELAS GROUP EIRL"],
@@ -252,7 +249,6 @@ def generar_pdf():
     buffer.seek(0)
     return buffer
 
-# --- BOTÓN PARA DESCARGAR EL PDF ---
 st.markdown("---")
 if st.button("📥 Generar y Descargar Cotización en PDF"):
     pdf_file = generar_pdf()
