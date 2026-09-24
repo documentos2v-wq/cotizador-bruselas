@@ -139,7 +139,6 @@ with c2:
 # --- FUNCIÓN PARA GENERAR EL PDF ---
 def generar_pdf():
     buffer = io.BytesIO()
-    # Márgenes estrictos: 30 a la izquierda y derecha (Ancho carta = 612, área útil = 552)
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     elements = []
     
@@ -152,13 +151,12 @@ def generar_pdf():
     estilo_td_center = ParagraphStyle('TDC', parent=styles['Normal'], fontSize=8, leading=10, alignment=1)
     estilo_td_right = ParagraphStyle('TDR', parent=styles['Normal'], fontSize=8, leading=10, alignment=2)
     
-    # Encabezado Empresa (Título grande)
+    # Encabezado Empresa
     elements.append(Paragraph("<b>BRUSELAS GROUP EIRL</b>", ParagraphStyle('EmpresaGrande', fontSize=22, leading=26, textColor=colors.HexColor("#003366"), fontName="Helvetica-Bold")))
     elements.append(Paragraph("CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS", estilo_normal))
     elements.append(Paragraph("RUC: 20611576456 | ventasschag@gmail.com | (051) 6514075 / +51 917 386 419", estilo_normal))
     elements.append(Spacer(1, 10))
     
-    # Tabla de cabecera alineada exactamente a un ancho total de 552
     info_data = [
         [Paragraph(f"<b>CODIGO:</b> {codigo_ref}", estilo_normal), Paragraph(f"<b>FECHA:</b> {fecha.strftime('%d/%m/%Y')}", estilo_blanco)],
         [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotizacion}", estilo_blanco)],
@@ -179,7 +177,6 @@ def generar_pdf():
     elements.append(t_info)
     elements.append(Spacer(1, 15))
     
-    # Tabla de productos alineada exactamente a un ancho total de 552
     prod_data = [[
         Paragraph("CANT.", estilo_th),
         Paragraph("CODIGO", estilo_th),
@@ -214,7 +211,7 @@ def generar_pdf():
     ]))
     elements.append(t_prod)
     
-    # --- FUNCIÓN PARA DIBUJAR EL BLOQUE INFERIOR PERFECTAMENTE ALINEADO ---
+    # --- FUNCIÓN PARA DIBUJAR EL BLOQUE INFERIOR CON TAMAÑOS ESTÉTICOS Y UNIFICADOS ---
     subtotal = importe_total_general / 1.18
     igv = importe_total_general - subtotal
 
@@ -229,12 +226,12 @@ def generar_pdf():
         texto_pie = "CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS - 917386419 - www.ventasschag.com"
         canvas.drawCentredString(612 / 2.0, 13, texto_pie)
         
-        # 2. Bloque inferior con ancho total exacto de 552 (alineado al margen X=30)
-        estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-Bold', fontSize=7, leading=9)
-        estilo_c_val = ParagraphStyle('CV', fontName='Helvetica', fontSize=7, leading=9)
-        estilo_letras = ParagraphStyle('LC', fontName='Helvetica-Oblique', fontSize=7, leading=9)
-        estilo_tot_lbl = ParagraphStyle('TL', fontName='Helvetica-Bold', fontSize=7, leading=9, textColor=colors.white, alignment=0)
-        estilo_tot_val = ParagraphStyle('TV', fontName='Helvetica-Bold', fontSize=7, leading=9, alignment=2)
+        # 2. Bloque inferior con tipografía unificada y estética (Tamaño 9 para guardar proporción con arriba)
+        estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-Bold', fontSize=9, leading=12)
+        estilo_c_val = ParagraphStyle('CV', fontName='Helvetica', fontSize=9, leading=12)
+        estilo_letras = ParagraphStyle('LC', fontName='Helvetica-Oblique', fontSize=9, leading=12)
+        estilo_tot_lbl = ParagraphStyle('TL', fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=colors.white, alignment=0)
+        estilo_tot_val = ParagraphStyle('TV', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=2)
         
         # Condiciones Comerciales (Izquierda)
         cond_rows = [
@@ -246,11 +243,11 @@ def generar_pdf():
             [Paragraph("GARANTÍA", estilo_c_label), Paragraph(f": {garantia}", estilo_c_val)],
             [Paragraph("EJECUTIVO DE VENTAS", estilo_c_label), Paragraph(f": {ejecutivo}", estilo_c_val)]
         ]
-        t_cond_pdf = Table(cond_rows, colWidths=[110, 230])
+        t_cond_pdf = Table(cond_rows, colWidths=[120, 210])
         t_cond_pdf.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('TOPPADDING', (0,0), (-1,-1), 0),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+            ('TOPPADDING', (0,0), (-1,-1), 1),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
             ('LEFTPADDING', (0,0), (-1,-1), 0),
         ]))
         
@@ -260,13 +257,13 @@ def generar_pdf():
             [Paragraph("IGV", estilo_tot_lbl), Paragraph(f"S/ {igv:,.2f}", estilo_tot_val)],
             [Paragraph("TOTAL", estilo_tot_lbl), Paragraph(f"S/ {importe_total_general:,.2f}", estilo_tot_val)]
         ]
-        t_tot_pdf = Table(tot_rows, colWidths=[90, 122])
+        t_tot_pdf = Table(tot_rows, colWidths=[90, 132])
         t_tot_pdf.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (0,-1), colors.HexColor("#003366")),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#003366")),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('TOPPADDING', (0,0), (-1,-1), 2),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+            ('TOPPADDING', (0,0), (-1,-1), 3),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
         ]))
         
         # Total en Letras
@@ -274,20 +271,20 @@ def generar_pdf():
         t_let_pdf.setStyle(TableStyle([
             ('BOX', (0,0), (-1,-1), 0.5, colors.black),
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F9F9F9")),
-            ('TOPPADDING', (0,0), (-1,-1), 3),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
             ('LEFTPADDING', (0,0), (-1,-1), 6),
         ]))
         
         # Contenedor Maestro inferior
-        master_top_row = Table([[t_cond_pdf, t_tot_pdf]], colWidths=[340, 212])
+        master_top_row = Table([[t_cond_pdf, t_tot_pdf]], colWidths=[330, 222])
         master_top_row.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
             ('LEFTPADDING', (0,0), (-1,-1), 0),
             ('RIGHTPADDING', (0,0), (-1,-1), 0),
         ]))
         
-        master_block = Table([[master_top_row], [Spacer(1, 6)], [t_let_pdf]], colWidths=[552])
+        master_block = Table([[master_top_row], [Spacer(1, 8)], [t_let_pdf]], colWidths=[552])
         master_block.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
             ('LEFTPADDING', (0,0), (-1,-1), 0),
@@ -296,8 +293,8 @@ def generar_pdf():
             ('BOTTOMPADDING', (0,0), (-1,-1), 0),
         ]))
         
-        # Posición fija exacta exactamente en X=30 para que se alinee perfecto con todo lo demás
-        master_block.wrapOn(canvas, 552, 200)
+        # Dibujar en la posición fija correspondiente (Y ajustada estéticamente para el tamaño 9)
+        master_block.wrapOn(canvas, 552, 220)
         master_block.drawOn(canvas, 30, 45)
         
         canvas.restoreState()
