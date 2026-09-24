@@ -15,23 +15,6 @@ st.set_page_config(page_title="Generador de Cotizaciones - Bruselas", layout="wi
 st.title("📄 Generador de Cotizaciones - BRUSELAS GROUP EIRL")
 st.markdown("---")
 
-# --- FUNCIÓN PARA CONSULTAR RUC (SUNAT VÍA API PÚBLICA) ---
-def consultar_ruc_sunat(numero_ruc):
-    if len(str(numero_ruc).strip()) == 11:
-        try:
-            # Usamos una API abierta y confiable para consulta de RUC en Perú
-            url = f"https://api.apis.net.pe/v2/sunat/ruc?numero={numero_ruc}"
-            # O en su defecto, una consulta libre estándar:
-            response = requests.get(f"https://api.apis.net.pe/v1/ruc?numero={numero_ruc}", timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                razon_social = data.get("nombre", "") or data.get("razonSocial", "")
-                direccion = data.get("direccion", "")
-                return razon_social, direccion
-        except Exception as e:
-            pass
-    return None, None
-
 # --- FUNCIÓN PARA CONVERTIR NÚMEROS A LETRAS ---
 def numero_a_letras(monto):
     unidades = ("", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE")
@@ -90,41 +73,64 @@ def numero_a_letras(monto):
     decimales_str = f"{parte_decimal:02d}/100"
     return f"{texto_enteras} CON {decimales_str}"
 
-# --- SECCIÓN 1: DATOS GENERALES ---
-st.subheader("1. Información del Cliente y Cotización")
+# --- SECCIÓN 1: DATOS GENERALES Y CONSULTA RUC SUNAT ---
+st.subheader("1. Información del Cliente y Cotización (Búsqueda Automática RUC)")
 
-# Inicializamos valores en session_state para la auto-consulta de RUC
 if 'ruc_input' not in st.session_state:
     st.session_state.ruc_input = "20354537096"
 if 'cliente_input' not in st.session_state:
     st.session_state.cliente_input = "RED INTEGRADA DE SALUD OTUZCO"
-if 'dir_input' not in st.session_state:
-    st.session_state.dir_input = "CALLE TACNA Nº 769 - OTUZCO - LA LIBERTAD"
+if 'direccion_input' not in st.session_state:
+    st.session_state.direccion_input = "CALLE TACNA Nº 769 - OTUZCO - LA LIBERTAD"
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
     nro_cotizacion = st.text_input("N° de Cotización", "000-5960")
-    # Campo RUC con botón o trigger automático al escribir
+    
     ruc = st.text_input("RUC del Cliente", value=st.session_state.ruc_input)
-    if ruc != st.session_state.ruc_input:
-        st.session_state.ruc_input = ruc
-        if len(ruc.strip()) == 11:
-            with st.spinner("Consultando RUC en línea..."):
-                razon, direccion_encontrada = consultar_ruc_sunat(ruc)
-                if razon:
-                    st.session_state.cliente_input = razon
-                    if direccion_encontrada:
-                        st.session_state.dir_input = direccion_encontrada
-                    st.success("¡Datos del cliente encontrados y rellenados automáticamente!")
+    if st.button("🔍 Consultar RUC en SUNAT"):
+        if len(ruc) == 11 and ruc.isdigit():
+            try:
+                response = requests.get(f"https://api.apis.net.pe/v2/sunat/ruc?numero={ruc}", timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    st.session_state.cliente_input = data.get("razonSocial", "")
+                    
+                    # Extracción detallada de dirección, distrito, provincia y departamento
+                    dir_sunat = data.get("direccion", "").strip()
+                    distrito = data.get("distrito", "").strip()
+                    provincia = data.get("provincia", "").strip()
+                    departamento = data.get("departamento", "").strip()
+                    
+                    # Unimos componentes de forma limpia evitando duplicados si la API ya los trae
+                    partes_dir = [dir_sunat]
+                    if distrito and distrito.upper() not in dir_sunat.upper():
+                        partes_dir.append(distrito)
+                    if provincia and provincia.upper() not in dir_sunat.upper():
+                        partes_dir.append(provincia)
+                    if departamento and departamento.upper() not in dir_sunat.upper():
+                        partes_dir.append(departamento)
+                        
+                    direccion_completa = " - ".join([p for p in partes_dir if p])
+                    st.session_state.direccion_input = direccion_completa if direccion_completa else dir_sunat
+                    
+                    st.success("¡Datos y dirección completa (Provincia y Región) obtenidos de SUNAT!")
                     st.rerun()
+                else:
+                    st.warning("No se encontró información para el RUC ingresado.")
+            except Exception as e:
+                st.error("Error al conectar con el servicio de SUNAT. Verifique su conexión.")
+        else:
+            st.error("El RUC debe tener exactamente 11 dígitos numéricos.")
 
 with col2:
     fecha = st.date_input("Fecha", datetime.today())
-    cliente = st.text_input("Cliente", value=st.session_state.cliente_input)
+    direccion = st.text_input("Dirección", value=st.session_state.direccion_input)
+
 with col3:
+    cliente = st.text_input("Cliente (Razón Social)", value=st.session_state.cliente_input)
     codigo_ref = st.text_input("Código Interno / Ref", "002022-0007-0045")
-    direccion = st.text_input("Dirección", value=st.session_state.dir_input)
 
 st.markdown("---")
 
