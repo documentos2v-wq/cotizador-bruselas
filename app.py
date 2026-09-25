@@ -234,7 +234,7 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON SELLO Y FIRMA ---
+# --- FUNCIÓN PARA GENERAR EL PDF CON SELLO Y FIRMA ESTABLE ---
 def generar_pdf(nro_cotiz_str):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=85, bottomMargin=40)
@@ -421,33 +421,25 @@ def generar_pdf(nro_cotiz_str):
             ('RIGHTPADDING', (0,0), (-1,-1), 0),
         ]))
         
-        # --- AGREGAR SELLO Y FIRMA DEBAJO DEL RECUADRO DE MONTO EN LETRAS ---
-        sello_flowable = None
-        if os.path.exists("sello.png"):
-            try:
-                # Sello en tamaño normal y proporcionado (ej. ancho de 160 pts)
-                sello_flowable = ReportLabImage("sello.png", width=160, height=80)
-                sello_flowable.hAlign = 'RIGHT' # Ubicado hacia la derecha, debajo de los totales
-            except:
-                pass
-
-        bloques_inferiores = [[master_top_row], [Spacer(1, 8)], [t_let_pdf]]
-        if sello_flowable:
-            bloques_inferiores.append(Spacer(1, 10))
-            bloques_inferiores.append([sello_flowable])
-
-        master_block = Table(bloques_inferiores, colWidths=[552])
+        master_block = Table([[master_top_row], [Spacer(1, 8)], [t_let_pdf]], colWidths=[552])
         master_block.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('VALIGN', (0,0), (-1,-1), 0),
             ('LEFTPADDING', (0,0), (-1,-1), 0),
             ('RIGHTPADDING', (0,0), (-1,-1), 0),
             ('TOPPADDING', (0,0), (-1,-1), 0),
             ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-            ('ALIGN', (0, 3), (-1, -1), 'RIGHT'),
         ]))
         
-        master_block.wrapOn(canvas, 552, 280)
+        master_block.wrapOn(canvas, 552, 220)
         master_block.drawOn(canvas, 30, 42)
+        
+        # --- DIBUJAR EL SELLO Y FIRMA DIRECTAMENTE EN EL CANVAS (EVITA ERRORES) ---
+        if os.path.exists("sello.png"):
+            try:
+                # Dibuja la imagen del sello alineada a la derecha debajo de los totales (Coordenadas X=400, Y=45)
+                canvas.drawImage("sello.png", 390, 42, width=150, height=75, mask='auto', preserveAspectRatio=True)
+            except:
+                pass
         
         canvas.restoreState()
 
