@@ -182,7 +182,7 @@ importe_total_general = df_limpio['Importe Total'].sum()
 monto_en_letras = numero_a_letras(importe_total_general)
 
 st.markdown("#### 📊 Resumen de Importes Totales Calculados por Ítem")
-df_mostrar_resumen = df_limpio[['Cantidad', 'Código', 'Descripción', 'Marca', 'Plazo Entrega', 'P.U. (Inc. IGV)', 'Importe Total']].copy()
+df_mostrar_resumen = df_limpio[['Cantidad', 'Código', 'Descripción', 'Marca', 'Plazo Entrega', 'P.U. (Inc. IGV', 'Importe Total']].copy if 'P.U. (Inc. IGV' in df_limpio.columns else df_limpio[['Cantidad', 'Código', 'Descripción', 'Marca', 'Plazo Entrega', 'P.U. (Inc. IGV)', 'Importe Total']].copy()
 df_mostrar_resumen['P.U. (Inc. IGV)'] = df_mostrar_resumen['P.U. (Inc. IGV)'].apply(lambda x: f"S/ {x:,.2f}")
 df_mostrar_resumen['Importe Total'] = df_mostrar_resumen['Importe Total'].apply(lambda x: f"S/ {x:,.2f}")
 st.dataframe(df_mostrar_resumen, use_container_width=True, hide_index=True)
@@ -203,10 +203,11 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON ENCABEZADO Y REDES SOCIALES ---
+# --- FUNCIÓN PARA GENERAR EL PDF CON ENCABEZADO DE 2.5 CM ---
 def generar_pdf(nro_cotiz_str):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=45, bottomMargin=40)
+    # Margen superior incrementado para dar cabida al encabezado de 2.5 cm (71 pts)
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=85, bottomMargin=40)
     elements = []
     
     styles = getSampleStyleSheet()
@@ -300,18 +301,19 @@ def generar_pdf(nro_cotiz_str):
         canvas.setFillColor(colors.HexColor("#F2F6F9"))
         canvas.rect(0, 0, 612, 792, fill=1, stroke=0)
         
-        # --- ENCABEZADO SUPERIOR AZUL CON REDES SOCIALES ---
+        # --- ENCABEZADO SUPERIOR AMPLIADO A 2.5 CM (71 PUNTOS) ---
         canvas.setFillColor(colors.HexColor("#003366"))
-        canvas.rect(0, 757, 612, 35, fill=1, stroke=0)
+        canvas.rect(0, 721, 612, 71, fill=1, stroke=0)
+        
         canvas.setFillColor(colors.white)
-        canvas.setFont("Helvetica-Bold", 7)
+        canvas.setFont("Helvetica-Bold", 10)
+        canvas.drawString(30, 765, "BRUSELAS GROUP EIRL")
         
-        # Texto corporativo a la izquierda
-        canvas.drawString(25, 770, "BRUSELAS GROUP EIRL")
+        canvas.setFont("Helvetica", 8)
+        canvas.drawString(30, 745, "PROPUESTA ECONÓMICA Y COMERCIAL")
         
-        # Redes sociales simuladas con separadores y etiquetas claras a la derecha
-        redes_texto = "🌐 f: /BruselasGroup  |  💬 WA: +51 917 386 419  |  📷 IG: @BruselasGroup  |  🎵 TK: @BruselasEIRL"
-        canvas.drawRightString(612 - 25, 770, redes_texto)
+        redes_texto = "■ f: /BruselasGroup   |   ■ WA: +51 917 386 419   |   ■ IG: @BruselasGroup   |   ■ TK: @BruselasEIRL"
+        canvas.drawRightString(612 - 30, 755, redes_texto)
         
         # --- PIE DE PÁGINA INFERIOR AZUL ---
         canvas.setFillColor(colors.HexColor("#003366"))
