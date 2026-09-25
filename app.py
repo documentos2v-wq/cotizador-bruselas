@@ -203,10 +203,9 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON ENCABEZADO Y PIE DE PÁGINA CORPORATIVOS ---
+# --- FUNCIÓN PARA GENERAR EL PDF CON ENCABEZADO Y REDES SOCIALES ---
 def generar_pdf(nro_cotiz_str):
     buffer = io.BytesIO()
-    # Márgenes ajustados para dar espacio al nuevo encabezado superior
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=45, bottomMargin=40)
     elements = []
     
@@ -301,13 +300,18 @@ def generar_pdf(nro_cotiz_str):
         canvas.setFillColor(colors.HexColor("#F2F6F9"))
         canvas.rect(0, 0, 612, 792, fill=1, stroke=0)
         
-        # --- ENCABEZADO SUPERIOR AZUL ---
+        # --- ENCABEZADO SUPERIOR AZUL CON REDES SOCIALES ---
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.rect(0, 757, 612, 35, fill=1, stroke=0)
         canvas.setFillColor(colors.white)
-        canvas.setFont("Helvetica-Bold", 8)
-        texto_header = "PROPUESTA ECONÓMICA Y COMERCIAL — BRUSELAS GROUP EIRL"
-        canvas.drawCentredString(612 / 2.0, 770, texto_header)
+        canvas.setFont("Helvetica-Bold", 7)
+        
+        # Texto corporativo a la izquierda
+        canvas.drawString(25, 770, "BRUSELAS GROUP EIRL")
+        
+        # Redes sociales simuladas con separadores y etiquetas claras a la derecha
+        redes_texto = "🌐 f: /BruselasGroup  |  💬 WA: +51 917 386 419  |  📷 IG: @BruselasGroup  |  🎵 TK: @BruselasEIRL"
+        canvas.drawRightString(612 - 25, 770, redes_texto)
         
         # --- PIE DE PÁGINA INFERIOR AZUL ---
         canvas.setFillColor(colors.HexColor("#003366"))
