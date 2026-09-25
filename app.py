@@ -4,7 +4,7 @@ import os
 import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as RLImage
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import streamlit as st
 from PIL import Image as PILImage
@@ -73,9 +73,29 @@ def numero_a_letras(monto):
     decimales_str = f"{parte_decimal:02d}/100"
     return f"{texto_enteras} CON {decimales_str} SOLES"
 
-# --- GESTIÓN DE CORRELATIVO AUTOMÁTICO ---
+# --- GESTIÓN DE CORRELATIVO PERSISTENTE (ARCHIVO LOCAL) ---
+ARCHIVO_CONTADOR = "contador.txt"
+
+def obtener_y_actualizar_correlativo():
+    if os.path.exists(ARCHIVO_CONTADOR):
+        try:
+            with open(ARCHIVO_CONTADOR, "r") as f:
+                val = int(f.read().strip())
+        except:
+            val = 5960
+    else:
+        val = 5960
+    return val
+
+def guardar_siguiente_correlativo(val_actual):
+    try:
+        with open(ARCHIVO_CONTADOR, "w") as f:
+            f.write(str(val_actual + 1))
+    except:
+        pass
+
 if 'nro_secuencial' not in st.session_state:
-    st.session_state.nro_secuencial = 5960
+    st.session_state.nro_secuencial = obtener_y_actualizar_correlativo()
 
 # --- SECCIÓN 1: DATOS GENERALES ---
 st.subheader("1. Información del Cliente y Cotización")
@@ -106,7 +126,7 @@ with col3:
 st.markdown("---")
 
 # --- SECCIÓN 2: DETALLE DE PRODUCTOS ---
-st.subheader("2. Detalle de Productos, Precios e Imágenes por Ítem")
+st.subheader("2. Detalle de Productos y Precios")
 
 if 'productos_df' not in st.session_state:
     st.session_state.productos_df = pd.DataFrame([
@@ -142,29 +162,7 @@ df_limpio['Importe Total'] = df_limpio['Cantidad'] * df_limpio['P.U. (Inc. IGV)'
 importe_total_general = df_limpio['Importe Total'].sum()
 monto_en_letras = numero_a_letras(importe_total_general)
 
-# --- GESTIÓN DE IMÁGENES COMPACTAS POR CADA FILA ---
-if 'imagenes_items' not in st.session_state:
-    st.session_state.imagenes_items = {}
-
-st.markdown("##### 📷 Adjuntar Imagen Compacta por Ítem")
-num_filas = len(df_editado)
-for i in range(num_filas):
-    desc_actual = df_editado.iloc[i]['Descripción']
-    if pd.isna(desc_actual) or desc_actual == "":
-        desc_actual = f"Ítem {i+1}"
-    
-    col_lbl, col_up = st.columns([4, 1])
-    with col_lbl:
-        st.markdown(f"**Ítem {i+1}:** {desc_actual}")
-    with col_up:
-        archivo_subido = st.file_uploader(f"Img {i+1}", type=["png", "jpg", "jpeg"], key=f"img_fila_{i}", label_visibility="collapsed")
-        if archivo_subido is not None:
-            st.session_state.imagenes_items[i] = archivo_subido
-        elif i not in st.session_state.imagenes_items:
-            st.session_state.imagenes_items[i] = None
-
 # Mostramos tabla resumen clara con los importes totales calculados
-st.markdown("---")
 st.markdown("#### 📊 Resumen de Importes Totales Calculados por Ítem")
 df_mostrar_resumen = df_limpio[['Cantidad', 'Código', 'Descripción', 'Marca', 'Plazo Entrega', 'P.U. (Inc. IGV)', 'Importe Total']].copy()
 df_mostrar_resumen['P.U. (Inc. IGV)'] = df_mostrar_resumen['P.U. (Inc. IGV)'].apply(lambda x: f"S/ {x:,.2f}")
@@ -229,72 +227,31 @@ def generar_pdf():
     elements.append(t_info)
     elements.append(Spacer(1, 15))
     
-    hay_imagenes = any(
-        idx in st.session_state.imagenes_items and st.session_state.imagenes_items[idx] is not None 
-        for idx in df_limpio.index
-    )
-    
-    if hay_imagenes:
-        prod_data = [[
-            Paragraph("CANT.", estilo_th),
-            Paragraph("CODIGO", estilo_th),
-            Paragraph("IMAGEN", estilo_th),
-            Paragraph("DESCRIPCION", estilo_th),
-            Paragraph("MARCA", estilo_th),
-            Paragraph("PLAZO", estilo_th),
-            Paragraph("P.U.", estilo_th),
-            Paragraph("IMPORTE", estilo_th)
-        ]]
-        col_widths = [35, 55, 50, 142, 50, 45, 60, 115]
-    else:
-        prod_data = [[
-            Paragraph("CANT.", estilo_th),
-            Paragraph("CODIGO", estilo_th),
-            Paragraph("DESCRIPCION", estilo_th),
-            Paragraph("MARCA", estilo_th),
-            Paragraph("PLAZO", estilo_th),
-            Paragraph("P.U.", estilo_th),
-            Paragraph("IMPORTE", estilo_th)
-        ]]
-        col_widths = [40, 60, 192, 55, 55, 65, 85]
-    
-    temp_img_paths = []
+    prod_data = [[
+        Paragraph("CANT.", estilo_th),
+        Paragraph("CODIGO", estilo_th),
+        Paragraph("DESCRIPCION", estilo_th),
+        Paragraph("MARCA", estilo_th),
+        Paragraph("PLAZO", estilo_th),
+        Paragraph("P.U.", estilo_th),
+        Paragraph("IMPORTE", estilo_th)
+    ]]
+    col_widths = [40, 60, 192, 55, 55, 65, 85]
     
     for idx, row in df_limpio.iterrows():
         cant_val = int(row['Cantidad'])
         pu_val = float(row['P.U. (Inc. IGV)'])
         imp_val = float(row['Importe Total'])
         
-        if hay_imagenes:
-            img_element = Paragraph("-", estilo_td_center)
-            if idx in st.session_state.imagenes_items and st.session_state.imagenes_items[idx] is not None:
-                img_file = st.session_state.imagenes_items[idx]
-                tmp_path = f"temp_img_{idx}.png"
-                with open(tmp_path, "wb") as f:
-                    f.write(img_file.getbuffer())
-                temp_img_paths.append(tmp_path)
-                img_element = RLImage(tmp_path, width=42.5, height=42.5)
-            
-            prod_data.append([
-                Paragraph(str(cant_val), estilo_td_center),
-                Paragraph(str(row['Código']) if pd.notna(row['Código']) else "", estilo_td_center),
-                img_element,
-                Paragraph(str(row['Descripción']) if pd.notna(row['Descripción']) else "", estilo_td_left),
-                Paragraph(str(row['Marca']) if pd.notna(row['Marca']) else "", estilo_td_center),
-                Paragraph(str(row['Plazo Entrega']) if pd.notna(row['Plazo Entrega']) else "", estilo_td_center),
-                Paragraph(f"S/ {pu_val:,.2f}", estilo_td_right),
-                Paragraph(f"S/ {imp_val:,.2f}", estilo_td_right)
-            ])
-        else:
-            prod_data.append([
-                Paragraph(str(cant_val), estilo_td_center),
-                Paragraph(str(row['Código']) if pd.notna(row['Código']) else "", estilo_td_center),
-                Paragraph(str(row['Descripción']) if pd.notna(row['Descripción']) else "", estilo_td_left),
-                Paragraph(str(row['Marca']) if pd.notna(row['Marca']) else "", estilo_td_center),
-                Paragraph(str(row['Plazo Entrega']) if pd.notna(row['Plazo Entrega']) else "", estilo_td_center),
-                Paragraph(f"S/ {pu_val:,.2f}", estilo_td_right),
-                Paragraph(f"S/ {imp_val:,.2f}", estilo_td_right)
-            ])
+        prod_data.append([
+            Paragraph(str(cant_val), estilo_td_center),
+            Paragraph(str(row['Código']) if pd.notna(row['Código']) else "", estilo_td_center),
+            Paragraph(str(row['Descripción']) if pd.notna(row['Descripción']) else "", estilo_td_left),
+            Paragraph(str(row['Marca']) if pd.notna(row['Marca']) else "", estilo_td_center),
+            Paragraph(str(row['Plazo Entrega']) if pd.notna(row['Plazo Entrega']) else "", estilo_td_center),
+            Paragraph(f"S/ {pu_val:,.2f}", estilo_td_right),
+            Paragraph(f"S/ {imp_val:,.2f}", estilo_td_right)
+        ])
     
     t_prod = Table(prod_data, colWidths=col_widths)
     t_prod.setStyle(TableStyle([
@@ -418,12 +375,6 @@ def generar_pdf():
 
     doc.build(elements, onFirstPage=on_page, onLaterPages=on_page)
     
-    for p in temp_img_paths:
-        if os.path.exists(p):
-            try:
-                os.remove(p)
-            except:
-                pass
     if watermark_path and os.path.exists(watermark_path):
         try:
             os.remove(watermark_path)
@@ -437,10 +388,12 @@ st.markdown("---")
 if st.button("📥 Generar y Descargar Cotización en PDF"):
     pdf_file = generar_pdf()
     
-    nombre_archivo_pdf = f"Cotizacion_{st.session_state.nro_secuencial}.pdf"
-    st.session_state.nro_secuencial += 1
+    # Guardamos de forma persistente el siguiente número correlativo en el archivo contador.txt
+    guardar_siguiente_correlativo(st.session_state.nro_secuencial)
     
-    st.success("¡Cotización generada con éxito y número correlativo actualizado!")
+    nombre_archivo_pdf = f"Cotizacion_{st.session_state.nro_secuencial}.pdf"
+    
+    st.success("¡Cotización generada con éxito y número correlativo guardado permanentemente!")
     st.download_button(
         label="Descargar Archivo PDF",
         data=pdf_file,
