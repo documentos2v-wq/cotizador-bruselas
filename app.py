@@ -226,13 +226,13 @@ st.markdown("---")
 st.subheader("3. Condiciones Comerciales")
 c1, c2 = st.columns(2)
 with c1:
-    tiempo_entrega = st.text_input("Tiempo de Entrega", "EN DÍAS CALENDARIOS")
-    forma_pago = st.text_input("Forma de Pago", "CRÉDITO COMERCIAL")
-    validez = st.text_input("Validez de Oferta", "5 DÍAS")
+    tiempo_entrega = st.text_input("Tiempo de Entrega", "En días calendarios")
+    forma_pago = st.text_input("Forma de Pago", "Crédito comercial")
+    validez = st.text_input("Validez de Oferta", "5 días")
 with c2:
-    garantia = st.text_input("Garantía", "01 AÑO")
-    ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
-    moneda = st.text_input("Moneda", "S/. SOLES")
+    garantia = st.text_input("Garantía", "01 año")
+    ejecutivo = st.text_input("Ejecutivo de Ventas", "Melissa Quispe")
+    moneda = st.text_input("Moneda", "S/. Soles")
 
 # --- FUNCIÓN PARA GENERAR EL PDF ---
 def generar_pdf(nro_cotiz_str):
@@ -394,9 +394,9 @@ def generar_pdf(nro_cotiz_str):
     def dibujar_elementos_fijos(canvas, doc):
         canvas.saveState()
         
-        # Estilos modificados: letra más pequeña (8pt) y en cursiva (Helvetica-Oblique)
-        estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-BoldOblique', fontSize=8, leading=11)
-        estilo_c_val = ParagraphStyle('CV', fontName='Helvetica-Oblique', fontSize=8, leading=11)
+        # Letras en tamaño 6 y en cursiva (Helvetica-Oblique)
+        estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-BoldOblique', fontSize=6, leading=9)
+        estilo_c_val = ParagraphStyle('CV', fontName='Helvetica-Oblique', fontSize=6, leading=9)
         
         estilo_letras = ParagraphStyle('LC', fontName='Helvetica-Oblique', fontSize=9, leading=12)
         estilo_tot_lbl = ParagraphStyle('TL', fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=colors.white, alignment=0)
@@ -404,7 +404,7 @@ def generar_pdf(nro_cotiz_str):
         
         cond_rows = [
             [Paragraph("TIEMPO ENTREGA", estilo_c_label), Paragraph(f": {tiempo_entrega}", estilo_c_val)],
-            [Paragraph("RAZÓN SOCIAL", estilo_c_label), Paragraph(": BRUSELAS GROUP EIRL", estilo_c_val)],
+            [Paragraph("RAZÓN SOCIAL", estilo_c_label), Paragraph(f": {forma_pago}", estilo_c_val) if 'forma_pago' in locals() else Paragraph(": Bruselas Group EIRL", estilo_c_val)],
             [Paragraph("FORMA DE PAGO", estilo_c_label), Paragraph(f": {forma_pago}", estilo_c_val)],
             [Paragraph("MONEDA", estilo_c_label), Paragraph(f": {moneda}", estilo_c_val)],
             [Paragraph("VALIDEZ DE OFERTA", estilo_c_label), Paragraph(f": {validez}", estilo_c_val)],
@@ -415,7 +415,7 @@ def generar_pdf(nro_cotiz_str):
         t_cond_pdf.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
             ('TOPPADDING', (0,0), (-1,-1), 1),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 1),
             ('LEFTPADDING', (0,0), (-1,-1), 0),
         ]))
         
