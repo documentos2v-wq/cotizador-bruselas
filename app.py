@@ -456,26 +456,24 @@ def generar_pdf(nro_cotiz_str):
         t_let_pdf.wrapOn(canvas, 552, 40)
         t_let_pdf.drawOn(canvas, 30, 48)
         
-        # --- 3. SELLO, LÍNEA Y DATOS DE LA EMPRESA SUBIDOS 1 CENTÍMETRO MÁS (Y + 28) ---
+        # --- 3. SELLO, LÍNEA DELGADA Y DATOS DE LA EMPRESA 100% AZULES ---
         if sello_path_proc and os.path.exists(sello_path_proc):
             try:
-                # Sello elevado a Y = 120 (1 cm más arriba)
                 canvas.drawImage(sello_path_proc, 365, 120, width=165, height=75, mask='auto', preserveAspectRatio=True)
             except:
                 pass
                 
-        # Línea decorativa elegante debajo del sello (Y = 117)
+        # Línea decorativa más delgada (grosor 0.5)
         canvas.setStrokeColor(colors.HexColor("#003366"))
-        canvas.setLineWidth(1)
+        canvas.setLineWidth(0.5)
         canvas.line(360, 117, 552, 117)
         
-        # Datos oficiales de la empresa debajo de la línea (Y = 106, 96, 86)
+        # Datos oficiales de la empresa con color azul corporativo unificado
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.setFont("Helvetica-Bold", 8)
         canvas.drawCentredString(456, 106, "BRUSELAS GROUP EIRL")
         
         canvas.setFont("Helvetica", 7)
-        canvas.setFillColor(colors.HexColor("#333333"))
         canvas.drawCentredString(456, 96, "RUC: 20611576456")
         canvas.drawCentredString(456, 86, "SAN LUIS - LIMA - LIMA")
         
