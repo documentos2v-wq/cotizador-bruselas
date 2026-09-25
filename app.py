@@ -432,7 +432,7 @@ def generar_pdf(nro_cotiz_str):
             ('ROUNDEDCORNERS', [8, 8, 8, 8]),
         ]))
         
-        # --- 1. UBICAMOS EL BLOQUE SUPERIOR (CONDICIONES + TABLA DE TOTALES) BIEN ARRIBA ---
+        # --- 1. BLOQUE SUPERIOR (CONDICIONES + TABLA DE TOTALES) ---
         master_top_row = Table([[t_cond_pdf, t_tot_pdf]], colWidths=[330, 222])
         master_top_row.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -440,11 +440,10 @@ def generar_pdf(nro_cotiz_str):
             ('RIGHTPADDING', (0,0), (-1,-1), 0),
         ]))
         
-        # Posición Y = 160 coloca la tabla de totales exactamente arriba alineada con las condiciones comerciales
         master_top_row.wrapOn(canvas, 552, 100)
         master_top_row.drawOn(canvas, 30, 160)
         
-        # --- 2. UBICAMOS EL CUADRO DE LETRAS "SON:" EN LA PARTE INFERIOR ---
+        # --- 2. CUADRO DE LETRAS "SON:" EN LA PARTE INFERIOR ---
         t_let_pdf = Table([[Paragraph(f"<b>SON:</b> &nbsp; {monto_en_letras}", estilo_letras)]], colWidths=[552])
         t_let_pdf.setStyle(TableStyle([
             ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#666666")),
@@ -457,22 +456,28 @@ def generar_pdf(nro_cotiz_str):
         t_let_pdf.wrapOn(canvas, 552, 40)
         t_let_pdf.drawOn(canvas, 30, 48)
         
-        # --- 3. SELLO, LÍNEA Y DATOS DE LA EMPRESA EN EL ESPACIO LIBRE ---
+        # --- 3. SELLO, LÍNEA Y DATOS DE LA EMPRESA ELEVADOS DEBAJO DE LOS TOTALES ---
         if sello_path_proc and os.path.exists(sello_path_proc):
             try:
-                canvas.drawImage(sello_path_proc, 365, 68, width=165, height=75, mask='auto', preserveAspectRatio=True)
+                # Sello ubicado justo debajo del cuadro de totales (Y = 92)
+                canvas.drawImage(sello_path_proc, 365, 92, width=165, height=75, mask='auto', preserveAspectRatio=True)
             except:
                 pass
                 
-        # Línea decorativa elegante
+        # Línea decorativa elegante debajo del sello
         canvas.setStrokeColor(colors.HexColor("#003366"))
         canvas.setLineWidth(1)
-        canvas.line(360, 65, 552, 65)
+        canvas.line(360, 89, 552, 89)
         
-        # Datos oficiales de la empresa
+        # Datos oficiales de la empresa debajo de la línea
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawCentredString(456, 55, "BRUSELAS GROUP EIRL")
+        canvas.drawCentredString(456, 78, "BRUSELAS GROUP EIRL")
+        
+        canvas.setFont("Helvetica", 7)
+        canvas.setFillColor(colors.HexColor("#333333"))
+        canvas.drawCentredString(456, 68, "RUC: 20611576456")
+        canvas.drawCentredString(456, 58, "SAN LUIS - LIMA - LIMA")
         
         canvas.restoreState()
 
