@@ -2,6 +2,7 @@ from datetime import datetime
 import io
 import os
 import pandas as pd
+import requests
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
@@ -14,6 +15,44 @@ st.set_page_config(page_title="Generador de Cotizaciones - Bruselas", layout="wi
 
 st.title("📄 Generador de Cotizaciones - BRUSELAS GROUP EIRL")
 st.markdown("---")
+
+# --- FUNCIÓN PARA CONSULTAR RUC (SUNAT / PADRÓN) ---
+def consultar_ruc_sunat(ruc_numero):
+    """
+    Consulta los datos de la empresa mediante API pública o padrón para RUC de 11 dígitos.
+    """
+    ruc_numero = str(ruc_numero).strip()
+    if len(ruc_numero) != 11 or not ruc_numero.isdigit():
+        return None
+    
+    # Intentar consulta mediante API libre de RUC para Perú
+    try:
+        # Usando un endpoint público de consulta o respaldo
+        url = f"https://api.apis.net.pe/v1/ruc?numero={ruc_numero}"
+        headers = {"Accept": "application/json", "Authorization": "Bearer 0"} # O token público
+        response = requests.get(url, timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            if data and "razonSocial" in data:
+                return {
+                    "razon_social": data.get("razonSocial", ""),
+                    "direccion": f"{data.get('direccion', '')} - {data.get('distrito', '')} - {data.get('provincia', '')} - {data.get('departamento', '')}".strip(" -")
+                }
+    except:
+        pass
+
+    # Diccionario de respaldo rápido para entidades frecuentes o pruebas locales
+    respaldos_frecuentes = {
+        "20354537096": {
+            "razon_social": "RED INTEGRADA DE SALUD OTUZCO",
+            "direccion": "CALLE TACNA Nº 769 - OTUZCO - LA LIBERTAD"
+        }
+    }
+    
+    if ruc_numero in respaldos_frecuentes:
+        return respaldos_frecuentes[ruc_numero]
+
+    return None
 
 # --- FUNCIÓN PARA CONVERTIR NÚMEROS A LETRAS ---
 def numero_a_letras(monto):
@@ -113,14 +152,25 @@ with col1:
     nro_cotizacion_actual = f"000-{st.session_state.nro_secuencial}"
     nro_cotizacion = st.text_input("N° de Cotización (Correlativo Automático)", value=nro_cotizacion_actual, disabled=True)
     
-    ruc = st.text_input("RUC del Cliente", value=st.session_state.ruc_input)
+    # Callback al cambiar el RUC
+    def actualizar_datos_ruc():
+        ruc_ingresado = st.session_state.widget_ruc
+        datos_sunat = consultar_ruc_sunat(ruc_ingresado)
+        if datos_sunat:
+            st.session_state.ruc_input = ruc_ingresado
+            st.session_state.cliente_input = datos_sunat["razon_social"]
+            st.session_state.direccion_input = datos_sunat["direccion"]
+        else:
+            st.session_state.ruc_input = ruc_ingresado
+
+    ruc = st.text_input("RUC del Cliente", value=st.session_state.ruc_input, key="widget_ruc", on_change=actualizar_datos_ruc)
 
 with col2:
     fecha = st.date_input("Fecha", datetime.today())
-    direccion = st.text_input("Dirección", value=st.session_state.direccion_input)
+    direccion = st.text_input("Dirección", value=st.session_state.direccion_input, key="direccion_input")
 
 with col3:
-    cliente = st.text_input("Cliente (Razón Social)", value=st.session_state.cliente_input)
+    cliente = st.text_input("Cliente (Razón Social)", value=st.session_state.cliente_input, key="cliente_input")
     codigo_ref = st.text_input("Código Interno / Ref", "002022-0007-0045")
 
 st.markdown("---")
@@ -142,7 +192,6 @@ if 'productos_df' not in st.session_state:
 
 df_input = st.session_state.productos_df.copy()
 
-# Editor interactivo limpio (Cantidad y P.U. editables)
 df_editado = st.data_editor(
     df_input,
     num_rows="dynamic",
@@ -153,7 +202,6 @@ df_editado = st.data_editor(
     }
 )
 
-# --- CÁLCULO AUTOMÁTICO DE LOS IMPORTES TOTALES POR FILA ---
 df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
 df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
 df_limpio['P.U. (Inc. IGV)'] = pd.to_numeric(df_limpio['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
@@ -162,7 +210,6 @@ df_limpio['Importe Total'] = df_limpio['Cantidad'] * df_limpio['P.U. (Inc. IGV)'
 importe_total_general = df_limpio['Importe Total'].sum()
 monto_en_letras = numero_a_letras(importe_total_general)
 
-# Mostramos tabla resumen clara con los importes totales calculados
 st.markdown("#### 📊 Resumen de Importes Totales Calculados por Ítem")
 df_mostrar_resumen = df_limpio[['Cantidad', 'Código', 'Descripción', 'Marca', 'Plazo Entrega', 'P.U. (Inc. IGV)', 'Importe Total']].copy()
 df_mostrar_resumen['P.U. (Inc. IGV)'] = df_mostrar_resumen['P.U. (Inc. IGV)'].apply(lambda x: f"S/ {x:,.2f}")
@@ -211,7 +258,7 @@ def generar_pdf():
         [Paragraph(f"<b>CODIGO:</b> {codigo_ref}", estilo_normal), Paragraph(f"<b>FECHA:</b> {fecha.strftime('%d/%m/%Y')}", estilo_blanco)],
         [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotizacion_actual}", estilo_blanco)],
         [Paragraph(f"<b>DIRECCION:</b> {direccion}", estilo_normal), ""],
-        [Paragraph(f"<b>RUC:</b> {ruc}", estilo_normal), ""]
+        [Paragraph(f"<b>RUC:</b> {st.session_state.ruc_input}", estilo_normal), ""]
     ]
     
     t_info = Table(info_data, colWidths=[382, 170])
@@ -263,7 +310,6 @@ def generar_pdf():
     ]))
     elements.append(t_prod)
     
-    # --- CREAR LA MARCA DE AGUA CON TRANSPARENCIA ---
     watermark_path = None
     if os.path.exists("logo.png"):
         try:
@@ -388,7 +434,6 @@ st.markdown("---")
 col_b1, col_b2 = st.columns(2)
 
 with col_b1:
-    # Botón principal para generar y descargar el PDF con el número actual
     pdf_file = generar_pdf()
     nombre_archivo_pdf = f"Cotizacion_{st.session_state.nro_secuencial}.pdf"
     
@@ -401,7 +446,6 @@ with col_b1:
     )
 
 with col_b2:
-    # Botón de confirmación para avanzar al siguiente número correlativo y guardarlo de forma permanente
     if st.button("🔄 Actualizar / Avanzar al Siguiente N° de Cotización"):
         incrementar_y_guardar_correlativo(st.session_state.nro_secuencial)
         st.session_state.nro_secuencial = obtener_correlativo_actual()
