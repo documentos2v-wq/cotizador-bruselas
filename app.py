@@ -182,7 +182,7 @@ importe_total_general = df_limpio['Importe Total'].sum()
 monto_en_letras = numero_a_letras(importe_total_general)
 
 st.markdown("#### 📊 Resumen de Importes Totales Calculados por Ítem")
-df_mostrar_resumen = df_limpio[['Cantidad', 'Código', 'Descripción', 'Marca', 'Plazo Entrega', 'P.U. (Inc. IGV', 'Importe Total']].copy if 'P.U. (Inc. IGV' in df_limpio.columns else df_limpio[['Cantidad', 'Código', 'Descripción', 'Marca', 'Plazo Entrega', 'P.U. (Inc. IGV)', 'Importe Total']].copy()
+df_mostrar_resumen = df_limpio[['Cantidad', 'Código', 'Descripción', 'Marca', 'Plazo Entrega', 'P.U. (Inc. IGV)', 'Importe Total']].copy()
 df_mostrar_resumen['P.U. (Inc. IGV)'] = df_mostrar_resumen['P.U. (Inc. IGV)'].apply(lambda x: f"S/ {x:,.2f}")
 df_mostrar_resumen['Importe Total'] = df_mostrar_resumen['Importe Total'].apply(lambda x: f"S/ {x:,.2f}")
 st.dataframe(df_mostrar_resumen, use_container_width=True, hide_index=True)
@@ -203,10 +203,9 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON ENCABEZADO DE 2.5 CM ---
+# --- FUNCIÓN PARA GENERAR EL PDF CON LÍNEAS AZULES CORPORATIVAS EN TOTALES ---
 def generar_pdf(nro_cotiz_str):
     buffer = io.BytesIO()
-    # Margen superior incrementado para dar cabida al encabezado de 2.5 cm (71 pts)
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=85, bottomMargin=40)
     elements = []
     
@@ -301,7 +300,7 @@ def generar_pdf(nro_cotiz_str):
         canvas.setFillColor(colors.HexColor("#F2F6F9"))
         canvas.rect(0, 0, 612, 792, fill=1, stroke=0)
         
-        # --- ENCABEZADO SUPERIOR AMPLIADO A 2.5 CM (71 PUNTOS) ---
+        # --- ENCABEZADO SUPERIOR AMPLIADO A 2.5 CM ---
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.rect(0, 721, 612, 71, fill=1, stroke=0)
         
@@ -371,7 +370,8 @@ def generar_pdf(nro_cotiz_str):
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('TOPPADDING', (0,0), (-1,-1), 3),
             ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.white),
+            # Líneas internas con el color azul corporativo (#003366) en lugar de blanco
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#003366")),
             ('ROUNDEDCORNERS', [8, 8, 8, 8]),
         ]))
         
