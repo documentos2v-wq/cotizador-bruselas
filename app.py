@@ -243,6 +243,7 @@ def generar_pdf(nro_cotiz_str):
     styles = getSampleStyleSheet()
     estilo_normal = ParagraphStyle('NormalCustom', parent=styles['Normal'], fontSize=9, leading=11)
     
+    # Texto centrado y en blanco para la cabecera superior derecha
     estilo_blanco_centrado = ParagraphStyle(
         'BlancoCentrado', 
         parent=styles['Normal'], 
@@ -250,7 +251,7 @@ def generar_pdf(nro_cotiz_str):
         leading=14, 
         fontName="Helvetica-Bold", 
         textColor=colors.white,
-        alignment=0
+        alignment=1  # Alineado al centro
     )
     
     estilo_th = ParagraphStyle('TH', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Bold", textColor=colors.white, alignment=1)
@@ -281,7 +282,7 @@ def generar_pdf(nro_cotiz_str):
         ('LEFTPADDING', (1,0), (1,1), 8),
         ('LEFTPADDING', (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('ROUNDEDCORNERS', [8, 8, 8, 8]),
+        ('ROUNDEDCORNERS', [8, 8, 8, 8]),  # Esquinas redondeadas aplicadas al cuadro azul
     ]))
     elements.append(t_info)
     elements.append(Spacer(1, 15))
@@ -404,7 +405,7 @@ def generar_pdf(nro_cotiz_str):
         
         cond_rows = [
             [Paragraph("TIEMPO ENTREGA", estilo_c_label), Paragraph(f": {tiempo_entrega}", estilo_c_val)],
-            [Paragraph("RAZÓN SOCIAL", estilo_c_label), Paragraph(f": {forma_pago}", estilo_c_val) if 'forma_pago' in locals() else Paragraph(": Bruselas Group EIRL", estilo_c_val)],
+            [Paragraph("RAZÓN SOCIAL", estilo_c_label), Paragraph(f": Bruselas Group EIRL", estilo_c_val)],
             [Paragraph("FORMA DE PAGO", estilo_c_label), Paragraph(f": {forma_pago}", estilo_c_val)],
             [Paragraph("MONEDA", estilo_c_label), Paragraph(f": {moneda}", estilo_c_val)],
             [Paragraph("VALIDEZ DE OFERTA", estilo_c_label), Paragraph(f": {validez}", estilo_c_val)],
