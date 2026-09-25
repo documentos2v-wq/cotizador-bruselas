@@ -76,7 +76,7 @@ def numero_a_letras(monto):
 # --- GESTIÓN DE CORRELATIVO PERSISTENTE (ARCHIVO LOCAL) ---
 ARCHIVO_CONTADOR = "contador.txt"
 
-def obtener_y_actualizar_correlativo():
+def obtener_correlativo_actual():
     if os.path.exists(ARCHIVO_CONTADOR):
         try:
             with open(ARCHIVO_CONTADOR, "r") as f:
@@ -87,7 +87,7 @@ def obtener_y_actualizar_correlativo():
         val = 5960
     return val
 
-def guardar_siguiente_correlativo(val_actual):
+def incrementar_y_guardar_correlativo(val_actual):
     try:
         with open(ARCHIVO_CONTADOR, "w") as f:
             f.write(str(val_actual + 1))
@@ -95,7 +95,7 @@ def guardar_siguiente_correlativo(val_actual):
         pass
 
 if 'nro_secuencial' not in st.session_state:
-    st.session_state.nro_secuencial = obtener_y_actualizar_correlativo()
+    st.session_state.nro_secuencial = obtener_correlativo_actual()
 
 # --- SECCIÓN 1: DATOS GENERALES ---
 st.subheader("1. Información del Cliente y Cotización")
@@ -385,18 +385,24 @@ def generar_pdf():
     return buffer
 
 st.markdown("---")
-if st.button("📥 Generar y Descargar Cotización en PDF"):
-    pdf_file = generar_pdf()
-    
-    # Guardamos de forma persistente el siguiente número correlativo en el archivo contador.txt
-    guardar_siguiente_correlativo(st.session_state.nro_secuencial)
-    
-    nombre_archivo_pdf = f"Cotizacion_{st.session_state.nro_secuencial}.pdf"
-    
-    st.success("¡Cotización generada con éxito y número correlativo guardado permanentemente!")
-    st.download_button(
-        label="Descargar Archivo PDF",
-        data=pdf_file,
-        file_name=nombre_archivo_pdf,
-        mime="application/pdf"
-    )
+col_btn1, col_btn2 = st.columns([1, 4])
+with col_btn1:
+    if st.button("📥 Generar y Descargar PDF"):
+        # 1. Guardamos el incremento en el archivo permanentemente
+        incrementar_y_guardar_correlativo(st.session_state.nro_secuencial)
+        
+        # 2. Generamos el archivo PDF con el número actual
+        pdf_file = generar_pdf()
+        nombre_archivo_pdf = f"Cotizacion_{st.session_state.nro_secuencial}.pdf"
+        
+        st.success("¡Cotización generada con éxito!")
+        st.download_button(
+            label="💾 Guardar Archivo PDF",
+            data=pdf_file,
+            file_name=nombre_archivo_pdf,
+            mime="application/pdf"
+        )
+        
+        # 3. Forzamos la actualización automática de la pantalla para mostrar el nuevo correlativo
+        st.session_state.nro_secuencial = obtener_correlativo_actual()
+        st.rerun()
