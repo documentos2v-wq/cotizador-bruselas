@@ -106,7 +106,7 @@ with col3:
 st.markdown("---")
 
 # --- SECCIÓN 2: DETALLE DE PRODUCTOS ---
-st.subheader("2. Detalle de Productos, Precios e Importes Totales")
+st.subheader("2. Detalle de Productos y Precios")
 
 if 'productos_df' not in st.session_state:
     st.session_state.productos_df = pd.DataFrame([
@@ -116,39 +116,40 @@ if 'productos_df' not in st.session_state:
             "Descripción": "REPRODUCTOR / EQUIPO TECNOLÓGICO ESPECIALIZADO",
             "Marca": "NACIONAL",
             "Plazo Entrega": "10",
-            "P.U. (Inc. IGV)": 399.90,
-            "Importe Total": 7998.00
+            "P.U. (Inc. IGV)": 399.90
         }
     ])
 
 df_input = st.session_state.productos_df.copy()
 
-# Forzar cálculo automático previo para que la columna nazca sincronizada
-df_input['Cantidad'] = pd.to_numeric(df_input['Cantidad'], errors='coerce').fillna(0)
-df_input['P.U. (Inc. IGV)'] = pd.to_numeric(df_input['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
-df_input['Importe Total'] = df_input['Cantidad'] * df_input['P.U. (Inc. IGV)']
-
+# Editor interactivo limpio (Cantidad y P.U. editables)
 df_editado = st.data_editor(
     df_input,
     num_rows="dynamic",
     use_container_width=True,
     column_config={
         "Cantidad": st.column_config.NumberColumn("Cantidad", min_value=1, step=1),
-        "P.U. (Inc. IGV)": st.column_config.NumberColumn("P.U. (Inc. IGV)", min_value=0.0, format="S/ %.2f"),
-        "Importe Total": st.column_config.NumberColumn("Importe Total", format="S/ %.2f", disabled=True)
+        "P.U. (Inc. IGV)": st.column_config.NumberColumn("P.U. (Inc. IGV)", min_value=0.0, format="S/ %.2f")
     }
 )
 
-# --- RECALCULAR AUTOMÁTICAMENTE CANTIDAD x P.U. EN TIEMPO REAL ---
+# --- CÁLCULO AUTOMÁTICO DE LOS IMPORTES TOTALES POR FILA ---
 df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
 df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
 df_limpio['P.U. (Inc. IGV)'] = pd.to_numeric(df_limpio['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
 
-# El importe total se recalcula siempre de forma estricta por fila
+# Cálculo automático de Importe Total por cada ítem
 df_limpio['Importe Total'] = df_limpio['Cantidad'] * df_limpio['P.U. (Inc. IGV)']
 
 importe_total_general = df_limpio['Importe Total'].sum()
 monto_en_letras = numero_a_letras(importe_total_general)
+
+# Mostramos una tabla visual limpia abajo con los importes totales calculados automáticamente
+st.markdown("#### 📊 Resumen de Importes Totales Calculados por Ítem")
+df_mostrar_resumen = df_limpio[['Cantidad', 'Código', 'Descripción', 'Marca', 'Plazo Entrega', 'P.U. (Inc. IGV)', 'Importe Total']].copy()
+df_mostrar_resumen['P.U. (Inc. IGV)'] = df_mostrar_resumen['P.U. (Inc. IGV)'].apply(lambda x: f"S/ {x:,.2f}")
+df_mostrar_resumen['Importe Total'] = df_mostrar_resumen['Importe Total'].apply(lambda x: f"S/ {x:,.2f}")
+st.dataframe(df_mostrar_resumen, use_container_width=True, hide_index=True)
 
 st.markdown("---")
 st.markdown("#### 📷 Adjuntar Imágenes Opcionales (Automático por Fila)")
