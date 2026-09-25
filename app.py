@@ -106,7 +106,7 @@ with col3:
 st.markdown("---")
 
 # --- SECCIÓN 2: DETALLE DE PRODUCTOS ---
-st.subheader("2. Detalle de Productos y Precios")
+st.subheader("2. Detalle de Productos, Precios e Imágenes por Ítem")
 
 if 'productos_df' not in st.session_state:
     st.session_state.productos_df = pd.DataFrame([
@@ -138,37 +138,38 @@ df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
 df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
 df_limpio['P.U. (Inc. IGV)'] = pd.to_numeric(df_limpio['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
 
-# Cálculo automático de Importe Total por cada ítem
 df_limpio['Importe Total'] = df_limpio['Cantidad'] * df_limpio['P.U. (Inc. IGV)']
-
 importe_total_general = df_limpio['Importe Total'].sum()
 monto_en_letras = numero_a_letras(importe_total_general)
 
-# Mostramos una tabla visual limpia abajo con los importes totales calculados automáticamente
-st.markdown("#### 📊 Resumen de Importes Totales Calculados por Ítem")
-df_mostrar_resumen = df_limpio[['Cantidad', 'Código', 'Descripción', 'Marca', 'Plazo Entrega', 'P.U. (Inc. IGV)', 'Importe Total']].copy()
-df_mostrar_resumen['P.U. (Inc. IGV)'] = df_mostrar_resumen['P.U. (Inc. IGV)'].apply(lambda x: f"S/ {x:,.2f}")
-df_mostrar_resumen['Importe Total'] = df_mostrar_resumen['Importe Total'].apply(lambda x: f"S/ {x:,.2f}")
-st.dataframe(df_mostrar_resumen, use_container_width=True, hide_index=True)
-
-st.markdown("---")
-st.markdown("#### 📷 Adjuntar Imágenes Opcionales (Automático por Fila)")
-st.info("Si subes una imagen para un ítem, aparecerá automáticamente en su fila del PDF. Si no subes ninguna, la columna de imagen se omitirá.")
-
+# --- GESTIÓN DE IMÁGENES COMPACTAS POR CADA FILA ---
 if 'imagenes_items' not in st.session_state:
     st.session_state.imagenes_items = {}
 
+st.markdown("##### 📷 Adjuntar Imagen Compacta por Ítem")
 num_filas = len(df_editado)
 for i in range(num_filas):
     desc_actual = df_editado.iloc[i]['Descripción']
     if pd.isna(desc_actual) or desc_actual == "":
         desc_actual = f"Ítem {i+1}"
     
-    archivo_subido = st.file_uploader(f"Imagen para el Producto Fila {i+1}: {desc_actual} (Opcional)", type=["png", "jpg", "jpeg"], key=f"img_fila_{i}")
-    if archivo_subido is not None:
-        st.session_state.imagenes_items[i] = archivo_subido
-    elif i not in st.session_state.imagenes_items:
-        st.session_state.imagenes_items[i] = None
+    col_lbl, col_up = st.columns([4, 1])
+    with col_lbl:
+        st.markdown(f"**Ítem {i+1}:** {desc_actual}")
+    with col_up:
+        archivo_subido = st.file_uploader(f"Img {i+1}", type=["png", "jpg", "jpeg"], key=f"img_fila_{i}", label_visibility="collapsed")
+        if archivo_subido is not None:
+            st.session_state.imagenes_items[i] = archivo_subido
+        elif i not in st.session_state.imagenes_items:
+            st.session_state.imagenes_items[i] = None
+
+# Mostramos tabla resumen clara con los importes totales calculados
+st.markdown("---")
+st.markdown("#### 📊 Resumen de Importes Totales Calculados por Ítem")
+df_mostrar_resumen = df_limpio[['Cantidad', 'Código', 'Descripción', 'Marca', 'Plazo Entrega', 'P.U. (Inc. IGV)', 'Importe Total']].copy()
+df_mostrar_resumen['P.U. (Inc. IGV)'] = df_mostrar_resumen['P.U. (Inc. IGV)'].apply(lambda x: f"S/ {x:,.2f}")
+df_mostrar_resumen['Importe Total'] = df_mostrar_resumen['Importe Total'].apply(lambda x: f"S/ {x:,.2f}")
+st.dataframe(df_mostrar_resumen, use_container_width=True, hide_index=True)
 
 st.info(f"**Importe Total General acumulado:** S/ {importe_total_general:,.2f}  \n**En Letras:** *{monto_en_letras}*")
 
