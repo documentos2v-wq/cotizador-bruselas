@@ -234,7 +234,7 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON SELLO Y FIRMA ESTABLE ---
+# --- FUNCIÓN PARA GENERAR EL PDF CON SELLO Y FIRMA AJUSTADO ---
 def generar_pdf(nro_cotiz_str):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=85, bottomMargin=40)
@@ -433,11 +433,11 @@ def generar_pdf(nro_cotiz_str):
         master_block.wrapOn(canvas, 552, 220)
         master_block.drawOn(canvas, 30, 42)
         
-        # --- DIBUJAR EL SELLO Y FIRMA DIRECTAMENTE EN EL CANVAS (EVITA ERRORES) ---
+        # --- DIBUJAR SELLO Y FIRMA AMPLIADO Y CENTRADO A LA DERECHA ---
         if os.path.exists("sello.png"):
             try:
-                # Dibuja la imagen del sello alineada a la derecha debajo de los totales (Coordenadas X=400, Y=45)
-                canvas.drawImage("sello.png", 390, 42, width=150, height=75, mask='auto', preserveAspectRatio=True)
+                # Ancho de 180 y altura de 90 para que se vea completo y legible
+                canvas.drawImage("sello.png", 370, 39, width=180, height=90, mask='auto', preserveAspectRatio=True)
             except:
                 pass
         
