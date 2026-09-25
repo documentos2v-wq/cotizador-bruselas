@@ -4,7 +4,7 @@ import os
 import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as ReportLabImage
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import streamlit as st
 from PIL import Image as PILImage
@@ -234,7 +234,7 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON SELLO Y FIRMA AJUSTADO ---
+# --- FUNCIÓN PARA GENERAR EL PDF CON SELLO TRANSPARENTE Y BIEN UBICADO ---
 def generar_pdf(nro_cotiz_str):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=85, bottomMargin=40)
@@ -322,6 +322,26 @@ def generar_pdf(nro_cotiz_str):
             img_pil.putalpha(alpha)
             watermark_path = "temp_watermark.png"
             img_pil.save(watermark_path)
+        except:
+            pass
+
+    # Procesar el sello para quitarle el fondo blanco automáticamente
+    sello_path_proc = None
+    if os.path.exists("sello.png"):
+        try:
+            sello_pil = PILImage.open("sello.png").convert("RGBA")
+            # Convertir el fondo blanco o casi blanco en transparente
+            datas = sello_pil.getdata()
+            new_data = []
+            for item in datas:
+                # Si el píxel es muy claro (cerca del blanco), lo hacemos transparente
+                if item[0] > 220 and item[1] > 220 and item[2] > 220:
+                    new_data.append((255, 255, 255, 0))
+                else:
+                    new_data.append(item)
+            sello_pil.putdata(new_data)
+            sello_path_proc = "temp_sello_transparente.png"
+            sello_pil.save(sello_path_proc)
         except:
             pass
 
@@ -433,11 +453,11 @@ def generar_pdf(nro_cotiz_str):
         master_block.wrapOn(canvas, 552, 220)
         master_block.drawOn(canvas, 30, 42)
         
-        # --- DIBUJAR SELLO Y FIRMA AMPLIADO Y CENTRADO A LA DERECHA ---
-        if os.path.exists("sello.png"):
+        # --- DIBUJAR SELLO Y FIRMA TRANSPARENTE UBICADO EXACTAMENTE EN EL ESPACIO LIBRE ---
+        if sello_path_proc and os.path.exists(sello_path_proc):
             try:
-                # Ancho de 180 y altura de 90 para que se vea completo y legible
-                canvas.drawImage("sello.png", 370, 39, width=180, height=90, mask='auto', preserveAspectRatio=True)
+                # Subido ligeramente a Y=55 para que no cruce la caja inferior de "SON:"
+                canvas.drawImage(sello_path_proc, 365, 52, width=175, height=85, mask='auto', preserveAspectRatio=True)
             except:
                 pass
         
@@ -452,6 +472,12 @@ def generar_pdf(nro_cotiz_str):
     if watermark_path and os.path.exists(watermark_path):
         try:
             os.remove(watermark_path)
+        except:
+            pass
+            
+    if sello_path_proc and os.path.exists(sello_path_proc):
+        try:
+            os.remove(sello_path_proc)
         except:
             pass
 
