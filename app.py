@@ -234,7 +234,7 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON SELLO, LÍNEA Y DATOS DE EMPRESA ---
+# --- FUNCIÓN PARA GENERAR EL PDF ---
 def generar_pdf(nro_cotiz_str):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=85, bottomMargin=40)
@@ -242,7 +242,17 @@ def generar_pdf(nro_cotiz_str):
     
     styles = getSampleStyleSheet()
     estilo_normal = ParagraphStyle('NormalCustom', parent=styles['Normal'], fontSize=9, leading=11)
-    estilo_blanco = ParagraphStyle('BlancoCustom', parent=styles['Normal'], fontSize=9, leading=11, fontName="Helvetica-Bold", textColor=colors.white)
+    
+    # Estilo perfectamente centrado verticalmente para la cabecera azul de Fecha y Cotización
+    estilo_blanco_centrado = ParagraphStyle(
+        'BlancoCentrado', 
+        parent=styles['Normal'], 
+        fontSize=9, 
+        leading=14, 
+        fontName="Helvetica-Bold", 
+        textColor=colors.white,
+        alignment=0
+    )
     
     estilo_th = ParagraphStyle('TH', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Bold", textColor=colors.white, alignment=1)
     estilo_td_left = ParagraphStyle('TDL', parent=styles['Normal'], fontSize=8, leading=10, alignment=0)
@@ -257,21 +267,22 @@ def generar_pdf(nro_cotiz_str):
     elements.append(Spacer(1, 10))
     
     info_data = [
-        [Paragraph(f"<b>CODIGO:</b> {codigo_ref}", estilo_normal), Paragraph(f"<b>FECHA:</b> {fecha.strftime('%d/%m/%Y')}", estilo_blanco)],
-        [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotiz_str}", estilo_blanco)],
+        [Paragraph(f"<b>CODIGO:</b> {codigo_ref}", estilo_normal), Paragraph(f"<b>FECHA:</b> {fecha.strftime('%d/%m/%Y')}", estilo_blanco_centrado)],
+        [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotiz_str}", estilo_blanco_centrado)],
         [Paragraph(f"<b>DIRECCION:</b> {direccion}", estilo_normal), ""],
         [Paragraph(f"<b>RUC:</b> {ruc}", estilo_normal), ""]
     ]
     
     t_info = Table(info_data, colWidths=[382, 170])
     t_info.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),  # Alineación vertical centrada
         ('BACKGROUND', (1,0), (1,1), colors.HexColor("#003366")),
-        ('TOPPADDING', (1,0), (1,1), 4),
-        ('BOTTOMPADDING', (1,0), (1,1), 4),
+        ('TOPPADDING', (1,0), (1,1), 5),
+        ('BOTTOMPADDING', (1,0), (1,1), 5),
+        ('LEFTPADDING', (1,0), (1,1), 8),
         ('LEFTPADDING', (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('ROUNDEDCORNERS', [8, 8, 8, 8],),
+        ('ROUNDEDCORNERS', [8, 8, 8, 8]),
     ]))
     elements.append(t_info)
     elements.append(Spacer(1, 15))
@@ -432,6 +443,7 @@ def generar_pdf(nro_cotiz_str):
             ('ROUNDEDCORNERS', [8, 8, 8, 8]),
         ]))
         
+        # --- UBICACIÓN ÓPTIMA Y LIMPIA DEL BLOQUE INFERIOR ---
         master_top_row = Table([[t_cond_pdf, t_tot_pdf]], colWidths=[330, 222])
         master_top_row.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -439,7 +451,6 @@ def generar_pdf(nro_cotiz_str):
             ('RIGHTPADDING', (0,0), (-1,-1), 0),
         ]))
         
-        # --- SUBIR EL RECUADRO DE RESULTADOS Y TOTALES (POSICIÓN Y = 58) ---
         master_block = Table([[master_top_row], [Spacer(1, 8)], [t_let_pdf]], colWidths=[552])
         master_block.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 0),
@@ -450,30 +461,30 @@ def generar_pdf(nro_cotiz_str):
         ]))
         
         master_block.wrapOn(canvas, 552, 220)
-        master_block.drawOn(canvas, 30, 58)
+        master_block.drawOn(canvas, 30, 46)
         
-        # --- DIBUJAR SELLO, LÍNEA DECORATIVA Y DATOS DE EMPRESA ---
+        # --- SELLO, LÍNEA Y DATOS DE LA EMPRESA BIEN DISTRIBUIDOS ---
         if sello_path_proc and os.path.exists(sello_path_proc):
             try:
-                # Sello ubicado más arriba (Y = 88)
-                canvas.drawImage(sello_path_proc, 365, 88, width=175, height=85, mask='auto', preserveAspectRatio=True)
+                # Sello ubicado a la altura perfecta (Y = 95)
+                canvas.drawImage(sello_path_proc, 365, 95, width=170, height=80, mask='auto', preserveAspectRatio=True)
             except:
                 pass
                 
-        # Línea decorativa debajo del sello
+        # Línea decorativa elegante debajo del sello
         canvas.setStrokeColor(colors.HexColor("#003366"))
         canvas.setLineWidth(1)
-        canvas.line(360, 85, 552, 85)
+        canvas.line(360, 92, 552, 92)
         
-        # Datos de la empresa debajo de la línea
+        # Datos oficiales de la empresa debajo de la línea
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawCentredString(456, 73, "BRUSELAS GROUP EIRL")
+        canvas.drawCentredString(456, 80, "BRUSELAS GROUP EIRL")
         
         canvas.setFont("Helvetica", 7)
         canvas.setFillColor(colors.HexColor("#333333"))
-        canvas.drawCentredString(456, 62, "RUC: 20611576456")
-        canvas.drawCentredString(456, 52, "SAN LUIS - LIMA - LIMA")
+        canvas.drawCentredString(456, 70, "RUC: 20611576456")
+        canvas.drawCentredString(456, 60, "SAN LUIS - LIMA - LIMA")
         
         canvas.restoreState()
 
