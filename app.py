@@ -203,10 +203,11 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON LÍNEAS COMPLETAS Y ESQUINAS OVALADAS ---
+# --- FUNCIÓN PARA GENERAR EL PDF CON ENCABEZADO Y PIE DE PÁGINA CORPORATIVOS ---
 def generar_pdf(nro_cotiz_str):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    # Márgenes ajustados para dar espacio al nuevo encabezado superior
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=45, bottomMargin=40)
     elements = []
     
     styles = getSampleStyleSheet()
@@ -218,7 +219,7 @@ def generar_pdf(nro_cotiz_str):
     estilo_td_center = ParagraphStyle('TDC', parent=styles['Normal'], fontSize=8, leading=10, alignment=1)
     estilo_td_right = ParagraphStyle('TDR', parent=styles['Normal'], fontSize=8, leading=10, alignment=2)
     
-    # Encabezado Empresa
+    # Encabezado Empresa dentro del cuerpo
     elements.append(Paragraph("<b>BRUSELAS GROUP EIRL</b>", ParagraphStyle('EmpresaGigante', fontSize=32, leading=36, textColor=colors.HexColor("#003366"), fontName="Helvetica-Bold")))
     elements.append(Spacer(1, 4))
     elements.append(Paragraph("CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS", estilo_normal))
@@ -294,14 +295,31 @@ def generar_pdf(nro_cotiz_str):
         except:
             pass
 
-    def dibujar_fondo_y_marca_de_agua(canvas, doc):
+    def dibujar_fondo_y_decoraciones(canvas, doc):
         canvas.saveState()
+        # Fondo general de la página
         canvas.setFillColor(colors.HexColor("#F2F6F9"))
         canvas.rect(0, 0, 612, 792, fill=1, stroke=0)
         
+        # --- ENCABEZADO SUPERIOR AZUL ---
+        canvas.setFillColor(colors.HexColor("#003366"))
+        canvas.rect(0, 757, 612, 35, fill=1, stroke=0)
+        canvas.setFillColor(colors.white)
+        canvas.setFont("Helvetica-Bold", 8)
+        texto_header = "PROPUESTA ECONÓMICA Y COMERCIAL — BRUSELAS GROUP EIRL"
+        canvas.drawCentredString(612 / 2.0, 770, texto_header)
+        
+        # --- PIE DE PÁGINA INFERIOR AZUL ---
+        canvas.setFillColor(colors.HexColor("#003366"))
+        canvas.rect(0, 0, 612, 35, fill=1, stroke=0)
+        canvas.setFillColor(colors.white)
+        canvas.setFont("Helvetica-Bold", 8)
+        texto_pie = "CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS - 917386419 - www.ventasschag.com"
+        canvas.drawCentredString(612 / 2.0, 13, texto_pie)
+        
         if watermark_path and os.path.exists(watermark_path):
             try:
-                canvas.drawImage(watermark_path, 106, 246, width=400, height=400, mask='auto', preserveAspectRatio=True)
+                canvas.drawImage(watermark_path, 106, 230, width=400, height=400, mask='auto', preserveAspectRatio=True)
             except:
                 pass
                 
@@ -312,13 +330,6 @@ def generar_pdf(nro_cotiz_str):
 
     def dibujar_elementos_fijos(canvas, doc):
         canvas.saveState()
-        
-        canvas.setFillColor(colors.HexColor("#003366"))
-        canvas.rect(0, 0, 612, 35, fill=1, stroke=0)
-        canvas.setFillColor(colors.white)
-        canvas.setFont("Helvetica-Bold", 8)
-        texto_pie = "CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS - 917386419 - www.ventasschag.com"
-        canvas.drawCentredString(612 / 2.0, 13, texto_pie)
         
         estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-Bold', fontSize=9, leading=12)
         estilo_c_val = ParagraphStyle('CV', fontName='Helvetica', fontSize=9, leading=12)
@@ -354,7 +365,6 @@ def generar_pdf(nro_cotiz_str):
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('TOPPADDING', (0,0), (-1,-1), 3),
             ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-            # Cuadrícula interna completa para que aparezcan las líneas en Importe, IGV y Total
             ('GRID', (0,0), (-1,-1), 0.5, colors.white),
             ('ROUNDEDCORNERS', [8, 8, 8, 8]),
         ]))
@@ -386,12 +396,12 @@ def generar_pdf(nro_cotiz_str):
         ]))
         
         master_block.wrapOn(canvas, 552, 220)
-        master_block.drawOn(canvas, 30, 45)
+        master_block.drawOn(canvas, 30, 42)
         
         canvas.restoreState()
 
     def on_page(canvas, doc):
-        dibujar_fondo_y_marca_de_agua(canvas, doc)
+        dibujar_fondo_y_decoraciones(canvas, doc)
         dibujar_elementos_fijos(canvas, doc)
 
     doc.build(elements, onFirstPage=on_page, onLaterPages=on_page)
@@ -407,17 +417,14 @@ def generar_pdf(nro_cotiz_str):
 
 st.markdown("---")
 
-# Generar el número de cotización actual basado en la sesión persistente
 nro_cotizacion_actual = f"000-{st.session_state.nro_secuencial}"
 
 col_b1, col_b2 = st.columns(2)
 
 with col_b1:
-    # Generamos el PDF con el número actual
     pdf_file = generar_pdf(nro_cotizacion_actual)
     nombre_archivo_pdf = f"Cotizacion_{st.session_state.nro_secuencial}.pdf"
     
-    # Botón de descarga que al mismo tiempo incrementa y guarda de manera definitiva el correlativo
     clicked = st.download_button(
         label="📥 Descargar Cotización en PDF",
         data=pdf_file,
@@ -427,7 +434,6 @@ with col_b1:
     )
     
     if clicked:
-        # Incrementar de forma persistente y actualizar la sesión para la próxima cotización
         nuevo_val = incrementar_y_guardar_correlativo()
         st.session_state.nro_secuencial = nuevo_val
         st.rerun()
