@@ -2,7 +2,6 @@ from datetime import datetime
 import io
 import os
 import pandas as pd
-import requests
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as RLImage
@@ -78,8 +77,8 @@ def numero_a_letras(monto):
 if 'nro_secuencial' not in st.session_state:
     st.session_state.nro_secuencial = 5960
 
-# --- SECCIÓN 1: DATOS GENERALES Y CONSULTA RUC SUNAT ---
-st.subheader("1. Información del Cliente y Cotización (Búsqueda Automática RUC)")
+# --- SECCIÓN 1: DATOS GENERALES ---
+st.subheader("1. Información del Cliente y Cotización")
 
 if 'ruc_input' not in st.session_state:
     st.session_state.ruc_input = "20354537096"
@@ -95,38 +94,6 @@ with col1:
     nro_cotizacion = st.text_input("N° de Cotización (Correlativo Automático)", value=nro_cotizacion_actual, disabled=True)
     
     ruc = st.text_input("RUC del Cliente", value=st.session_state.ruc_input)
-    if st.button("🔍 Consultar RUC en SUNAT"):
-        if len(ruc) == 11 and ruc.isdigit():
-            try:
-                response = requests.get(f"https://api.apis.net.pe/v2/sunat/ruc?numero={ruc}", timeout=5)
-                if response.status_code == 200:
-                    data = response.json()
-                    st.session_state.cliente_input = data.get("razonSocial", "")
-                    
-                    dir_sunat = data.get("direccion", "").strip()
-                    distrito = data.get("distrito", "").strip()
-                    provincia = data.get("provincia", "").strip()
-                    departamento = data.get("departamento", "").strip()
-                    
-                    partes_dir = [dir_sunat]
-                    if distrito and distrito.upper() not in dir_sunat.upper():
-                        partes_dir.append(distrito)
-                    if provincia and provincia.upper() not in dir_sunat.upper():
-                        partes_dir.append(provincia)
-                    if departamento and departamento.upper() not in dir_sunat.upper():
-                        partes_dir.append(departamento)
-                        
-                    direccion_completa = " - ".join([p for p in partes_dir if p])
-                    st.session_state.direccion_input = direccion_completa if direccion_completa else dir_sunat
-                    
-                    st.success("¡Datos y dirección completa obtenidos de SUNAT!")
-                    st.rerun()
-                else:
-                    st.warning("No se encontró información para el RUC ingresado.")
-            except Exception as e:
-                st.error("Error al conectar con el servicio de SUNAT. Verifique su conexión.")
-        else:
-            st.error("El RUC debe tener exactamente 11 dígitos numéricos.")
 
 with col2:
     fecha = st.date_input("Fecha", datetime.today())
@@ -331,12 +298,11 @@ def generar_pdf():
     ]))
     elements.append(t_prod)
     
-    # --- PRIMERO: CREAR LA MARCA DE AGUA CON TRANSPARENCIA (ALPHA) ---
+    # --- CREAR LA MARCA DE AGUA CON TRANSPARENCIA ---
     watermark_path = None
     if os.path.exists("logo.png"):
         try:
             img_pil = PILImage.open("logo.png").convert("RGBA")
-            # Ajustamos la transparencia (alpha) al 15% para que sea una marca de agua muy suave al fondo
             alpha = img_pil.split()[3]
             alpha = PILImage.eval(alpha, lambda a: int(a * 0.15))
             img_pil.putalpha(alpha)
@@ -345,32 +311,25 @@ def generar_pdf():
         except:
             pass
 
-    # --- FUNCIÓN PARA DIBUJAR FONDO, MARCA DE AGUA Y BLOQUE INFERIOR ANTES DE LOS TEXTOS ---
     def dibujar_fondo_y_marca_de_agua(canvas, doc):
         canvas.saveState()
-        
-        # 1. Color de fondo de la página
         canvas.setFillColor(colors.HexColor("#F2F6F9"))
         canvas.rect(0, 0, 612, 792, fill=1, stroke=0)
         
-        # 2. Logotipo como marca de agua semitransparente al fondo
         if watermark_path and os.path.exists(watermark_path):
             try:
-                # Centrado en la hoja (ancho 612, alto 792 -> centrado en x=106, y=246 de tamaño 400x400)
                 canvas.drawImage(watermark_path, 106, 246, width=400, height=400, mask='auto', preserveAspectRatio=True)
             except:
                 pass
                 
         canvas.restoreState()
 
-    # --- FUNCIÓN PARA DIBUJAR LOS ELEMENTOS FIJOS SUPERIORES E INFERIORES ---
     subtotal = importe_total_general / 1.18
     igv = importe_total_general - subtotal
 
     def dibujar_elementos_fijos(canvas, doc):
         canvas.saveState()
         
-        # Franja Azul del Pie de Página
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.rect(0, 0, 612, 35, fill=1, stroke=0)
         canvas.setFillColor(colors.white)
@@ -378,7 +337,6 @@ def generar_pdf():
         texto_pie = "CAL. FRANCISCO VIDAL DE LAOS NRO. 686 URB. LA VIÑA LIMA - LIMA - SAN LUIS - 917386419 - www.ventasschag.com"
         canvas.drawCentredString(612 / 2.0, 13, texto_pie)
         
-        # Bloque inferior con tipografía unificada
         estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-Bold', fontSize=9, leading=12)
         estilo_c_val = ParagraphStyle('CV', fontName='Helvetica', fontSize=9, leading=12)
         estilo_letras = ParagraphStyle('LC', fontName='Helvetica-Oblique', fontSize=9, leading=12)
@@ -446,14 +404,12 @@ def generar_pdf():
         
         canvas.restoreState()
 
-    # Combinamos para que el fondo se pinte primero (detrás de todo) y los elementos fijos después
     def on_page(canvas, doc):
         dibujar_fondo_y_marca_de_agua(canvas, doc)
         dibujar_elementos_fijos(canvas, doc)
 
     doc.build(elements, onFirstPage=on_page, onLaterPages=on_page)
     
-    # Limpieza de archivos temporales
     for p in temp_img_paths:
         if os.path.exists(p):
             try:
