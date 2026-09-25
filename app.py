@@ -106,7 +106,7 @@ with col3:
 st.markdown("---")
 
 # --- SECCIÓN 2: DETALLE DE PRODUCTOS ---
-st.subheader("2. Detalle de Productos y Precios (El importe se calcula automáticamente)")
+st.subheader("2. Detalle de Productos, Precios e Importes Totales")
 
 if 'productos_df' not in st.session_state:
     st.session_state.productos_df = pd.DataFrame([
@@ -116,28 +116,35 @@ if 'productos_df' not in st.session_state:
             "Descripción": "REPRODUCTOR / EQUIPO TECNOLÓGICO ESPECIALIZADO",
             "Marca": "NACIONAL",
             "Plazo Entrega": "10",
-            "P.U. (Inc. IGV)": 399.90
+            "P.U. (Inc. IGV)": 399.90,
+            "Importe Total": 7998.00
         }
     ])
 
 df_input = st.session_state.productos_df.copy()
 
-# Editor sin la columna manual de importe total para evitar desincronización
+# Forzar cálculo automático previo para que la columna nazca sincronizada
+df_input['Cantidad'] = pd.to_numeric(df_input['Cantidad'], errors='coerce').fillna(0)
+df_input['P.U. (Inc. IGV)'] = pd.to_numeric(df_input['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
+df_input['Importe Total'] = df_input['Cantidad'] * df_input['P.U. (Inc. IGV)']
+
 df_editado = st.data_editor(
     df_input,
     num_rows="dynamic",
     use_container_width=True,
     column_config={
         "Cantidad": st.column_config.NumberColumn("Cantidad", min_value=1, step=1),
-        "P.U. (Inc. IGV)": st.column_config.NumberColumn("P.U. (Inc. IGV)", min_value=0.0, format="S/ %.2f")
+        "P.U. (Inc. IGV)": st.column_config.NumberColumn("P.U. (Inc. IGV)", min_value=0.0, format="S/ %.2f"),
+        "Importe Total": st.column_config.NumberColumn("Importe Total", format="S/ %.2f", disabled=True)
     }
 )
 
-# --- CÁLCULO AUTOMÁTICO INEXPUGNABLE (Cantidad x Precio Unitario) ---
+# --- RECALCULAR AUTOMÁTICAMENTE CANTIDAD x P.U. EN TIEMPO REAL ---
 df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
 df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
 df_limpio['P.U. (Inc. IGV)'] = pd.to_numeric(df_limpio['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
 
+# El importe total se recalcula siempre de forma estricta por fila
 df_limpio['Importe Total'] = df_limpio['Cantidad'] * df_limpio['P.U. (Inc. IGV)']
 
 importe_total_general = df_limpio['Importe Total'].sum()
@@ -254,7 +261,7 @@ def generar_pdf():
     for idx, row in df_limpio.iterrows():
         cant_val = int(row['Cantidad'])
         pu_val = float(row['P.U. (Inc. IGV)'])
-        imp_val = cant_val * pu_val
+        imp_val = float(row['Importe Total'])
         
         if hay_imagenes:
             img_element = Paragraph("-", estilo_td_center)
