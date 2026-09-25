@@ -243,7 +243,6 @@ def generar_pdf(nro_cotiz_str):
     styles = getSampleStyleSheet()
     estilo_normal = ParagraphStyle('NormalCustom', parent=styles['Normal'], fontSize=9, leading=11)
     
-    # Estilo perfectamente centrado verticalmente para la cabecera azul de Fecha y Cotización
     estilo_blanco_centrado = ParagraphStyle(
         'BlancoCentrado', 
         parent=styles['Normal'], 
@@ -275,7 +274,7 @@ def generar_pdf(nro_cotiz_str):
     
     t_info = Table(info_data, colWidths=[382, 170])
     t_info.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),  # Alineación vertical centrada
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('BACKGROUND', (1,0), (1,1), colors.HexColor("#003366")),
         ('TOPPADDING', (1,0), (1,1), 5),
         ('BOTTOMPADDING', (1,0), (1,1), 5),
@@ -443,7 +442,6 @@ def generar_pdf(nro_cotiz_str):
             ('ROUNDEDCORNERS', [8, 8, 8, 8]),
         ]))
         
-        # --- UBICACIÓN ÓPTIMA Y LIMPIA DEL BLOQUE INFERIOR ---
         master_top_row = Table([[t_cond_pdf, t_tot_pdf]], colWidths=[330, 222])
         master_top_row.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -460,31 +458,32 @@ def generar_pdf(nro_cotiz_str):
             ('BOTTOMPADDING', (0,0), (-1,-1), 0),
         ]))
         
+        # --- SUBIR MÁS EL BLOQUE DE TOTALES E IMPORTES (POSICIÓN Y = 68) ---
         master_block.wrapOn(canvas, 552, 220)
-        master_block.drawOn(canvas, 30, 46)
+        master_block.drawOn(canvas, 30, 68)
         
-        # --- SELLO, LÍNEA Y DATOS DE LA EMPRESA BIEN DISTRIBUIDOS ---
+        # --- SELLO, LÍNEA Y DATOS DE LA EMPRESA UBICADOS MÁS ARRIBA ---
         if sello_path_proc and os.path.exists(sello_path_proc):
             try:
-                # Sello ubicado a la altura perfecta (Y = 95)
-                canvas.drawImage(sello_path_proc, 365, 95, width=170, height=80, mask='auto', preserveAspectRatio=True)
+                # Sello ubicado holgadamente en Y = 115
+                canvas.drawImage(sello_path_proc, 365, 115, width=170, height=80, mask='auto', preserveAspectRatio=True)
             except:
                 pass
                 
         # Línea decorativa elegante debajo del sello
         canvas.setStrokeColor(colors.HexColor("#003366"))
         canvas.setLineWidth(1)
-        canvas.line(360, 92, 552, 92)
+        canvas.line(360, 112, 552, 112)
         
         # Datos oficiales de la empresa debajo de la línea
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawCentredString(456, 80, "BRUSELAS GROUP EIRL")
+        canvas.drawCentredString(456, 100, "BRUSELAS GROUP EIRL")
         
         canvas.setFont("Helvetica", 7)
         canvas.setFillColor(colors.HexColor("#333333"))
-        canvas.drawCentredString(456, 70, "RUC: 20611576456")
-        canvas.drawCentredString(456, 60, "SAN LUIS - LIMA - LIMA")
+        canvas.drawCentredString(456, 90, "RUC: 20611576456")
+        canvas.drawCentredString(456, 80, "SAN LUIS - LIMA - LIMA")
         
         canvas.restoreState()
 
