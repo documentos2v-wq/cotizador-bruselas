@@ -4,7 +4,7 @@ import os
 import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as ReportLabImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import streamlit as st
 from PIL import Image as PILImage
@@ -146,7 +146,7 @@ with col3:
 
 st.markdown("---")
 
-# --- SECCIÓN 2: DETALLE DE PRODUCTOS (ADAPTADO VERTICALMENTE PARA MÓVIL Y PC) ---
+# --- SECCIÓN 2: DETALLE DE PRODUCTOS (ADAPTADO VERTICALMENTE) ---
 st.subheader("2. Detalle de Productos y Precios")
 
 if 'productos_lista' not in st.session_state:
@@ -163,7 +163,6 @@ if 'productos_lista' not in st.session_state:
 
 st.markdown("Añade o edita los productos de forma vertical (ideal para celular y PC):")
 
-# Formulario interactivo en bloques verticales
 nuevos_productos = []
 for idx, prod in enumerate(st.session_state.productos_lista):
     st.markdown(f"**📦 Ítem N° {idx + 1}**")
@@ -191,7 +190,6 @@ for idx, prod in enumerate(st.session_state.productos_lista):
 st.session_state.productos_lista = nuevos_productos
 df_limpio = pd.DataFrame(st.session_state.productos_lista)
 
-# Botones para agregar o quitar ítems cómodamente desde el celular
 col_add, col_rem = st.columns(2)
 with col_add:
     if st.button("➕ Agregar otro producto"):
@@ -236,7 +234,7 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON LÍNEAS AZULES CORPORATIVAS EN TOTALES ---
+# --- FUNCIÓN PARA GENERAR EL PDF CON SELLO Y FIRMA ---
 def generar_pdf(nro_cotiz_str):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=85, bottomMargin=40)
@@ -423,16 +421,32 @@ def generar_pdf(nro_cotiz_str):
             ('RIGHTPADDING', (0,0), (-1,-1), 0),
         ]))
         
-        master_block = Table([[master_top_row], [Spacer(1, 8)], [t_let_pdf]], colWidths=[552])
+        # --- AGREGAR SELLO Y FIRMA DEBAJO DEL RECUADRO DE MONTO EN LETRAS ---
+        sello_flowable = None
+        if os.path.exists("sello.png"):
+            try:
+                # Sello en tamaño normal y proporcionado (ej. ancho de 160 pts)
+                sello_flowable = ReportLabImage("sello.png", width=160, height=80)
+                sello_flowable.hAlign = 'RIGHT' # Ubicado hacia la derecha, debajo de los totales
+            except:
+                pass
+
+        bloques_inferiores = [[master_top_row], [Spacer(1, 8)], [t_let_pdf]]
+        if sello_flowable:
+            bloques_inferiores.append(Spacer(1, 10))
+            bloques_inferiores.append([sello_flowable])
+
+        master_block = Table(bloques_inferiores, colWidths=[552])
         master_block.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 0),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
             ('LEFTPADDING', (0,0), (-1,-1), 0),
             ('RIGHTPADDING', (0,0), (-1,-1), 0),
             ('TOPPADDING', (0,0), (-1,-1), 0),
             ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+            ('ALIGN', (0, 3), (-1, -1), 'RIGHT'),
         ]))
         
-        master_block.wrapOn(canvas, 552, 220)
+        master_block.wrapOn(canvas, 552, 280)
         master_block.drawOn(canvas, 30, 42)
         
         canvas.restoreState()
