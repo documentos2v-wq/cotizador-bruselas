@@ -71,7 +71,7 @@ def numero_a_letras(monto):
         texto_enteras = (texto_miles + texto_cientos).strip()
 
     decimales_str = f"{parte_decimal:02d}/100"
-    return f"{texto_enteras} CON {decimales_str}"
+    return f"{texto_enteras} CON {decimales_str} SOLES"
 
 # --- GESTIÓN DE CORRELATIVO AUTOMÁTICO ---
 if 'nro_secuencial' not in st.session_state:
@@ -122,8 +122,6 @@ if 'productos_df' not in st.session_state:
     ])
 
 df_input = st.session_state.productos_df.copy()
-if 'Importe Total' not in df_input.columns:
-    df_input['Importe Total'] = df_input['Cantidad'] * df_input['P.U. (Inc. IGV)']
 
 df_editado = st.data_editor(
     df_input,
@@ -136,11 +134,14 @@ df_editado = st.data_editor(
     }
 )
 
+# --- RECALCULAR AUTOMÁTICAMENTE EL IMPORTE TOTAL POR FILA ---
 df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
 df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
 df_limpio['P.U. (Inc. IGV)'] = pd.to_numeric(df_limpio['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
 
+# Multiplicación exacta Cantidad x Precio Unitario en tiempo real
 df_limpio['Importe Total'] = df_limpio['Cantidad'] * df_limpio['P.U. (Inc. IGV)']
+
 importe_total_general = df_limpio['Importe Total'].sum()
 monto_en_letras = numero_a_letras(importe_total_general)
 
