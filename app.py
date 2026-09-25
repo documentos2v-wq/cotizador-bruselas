@@ -385,24 +385,25 @@ def generar_pdf():
     return buffer
 
 st.markdown("---")
-col_btn1, col_btn2 = st.columns([1, 4])
-with col_btn1:
-    if st.button("📥 Generar y Descargar PDF"):
-        # 1. Guardamos el incremento en el archivo permanentemente
+col_b1, col_b2 = st.columns(2)
+
+with col_b1:
+    # Botón principal para generar y descargar el PDF con el número actual
+    pdf_file = generar_pdf()
+    nombre_archivo_pdf = f"Cotizacion_{st.session_state.nro_secuencial}.pdf"
+    
+    st.download_button(
+        label="📥 Descargar Cotización en PDF",
+        data=pdf_file,
+        file_name=nombre_archivo_pdf,
+        mime="application/pdf",
+        type="primary"
+    )
+
+with col_b2:
+    # Botón de confirmación para avanzar al siguiente número correlativo y guardarlo de forma permanente
+    if st.button("🔄 Actualizar / Avanzar al Siguiente N° de Cotización"):
         incrementar_y_guardar_correlativo(st.session_state.nro_secuencial)
-        
-        # 2. Generamos el archivo PDF con el número actual
-        pdf_file = generar_pdf()
-        nombre_archivo_pdf = f"Cotizacion_{st.session_state.nro_secuencial}.pdf"
-        
-        st.success("¡Cotización generada con éxito!")
-        st.download_button(
-            label="💾 Guardar Archivo PDF",
-            data=pdf_file,
-            file_name=nombre_archivo_pdf,
-            mime="application/pdf"
-        )
-        
-        # 3. Forzamos la actualización automática de la pantalla para mostrar el nuevo correlativo
         st.session_state.nro_secuencial = obtener_correlativo_actual()
+        st.success("¡Correlativo actualizado correctamente para la siguiente cotización!")
         st.rerun()
