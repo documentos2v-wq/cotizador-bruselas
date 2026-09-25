@@ -15,11 +15,38 @@ st.set_page_config(page_title="Generador de Cotizaciones - Bruselas", layout="wi
 st.title("📄 Generador de Cotizaciones - BRUSELAS GROUP EIRL")
 st.markdown("---")
 
-# Inicializar Session States si no existen
+# --- GESTIÓN DE CORRELATIVO PERSISTENTE ---
+ARCHIVO_CONTADOR = "contador.txt"
+
+def obtener_correlativo_actual():
+    if os.path.exists(ARCHIVO_CONTADOR):
+        try:
+            with open(ARCHIVO_CONTADOR, "r") as f:
+                val = int(f.read().strip())
+        except:
+            val = 5960
+    else:
+        val = 5960
+    return val
+
+def incrementar_y_guardar_correlativo():
+    actual = obtener_correlativo_actual()
+    nuevo = actual + 1
+    try:
+        with open(ARCHIVO_CONTADOR, "w") as f:
+            f.write(str(nuevo))
+    except:
+        pass
+    return nuevo
+
+if 'nro_secuencial' not in st.session_state:
+    st.session_state.nro_secuencial = obtener_correlativo_actual()
+
+# Inicializar Session States de Clientes si no existen
 if 'ruc_input' not in st.session_state:
-    st.session_state.ruc_input = "20354537096"
+    st.session_state.ruc_input = "20607260525"
 if 'cliente_input' not in st.session_state:
-    st.session_state.cliente_input = "RED INTEGRADA DE SALUD OTUZCO"
+    st.session_state.cliente_input = "ALIADOS ESTRATEGICOS DEL NORTE E.I.R.L."
 if 'direccion_input' not in st.session_state:
     st.session_state.direccion_input = "CALLE TACNA Nº 769 - OTUZCO - LA LIBERTAD"
 
@@ -81,34 +108,9 @@ def numero_a_letras(monto):
     decimales_str = f"{parte_decimal:02d}/100"
     return f"{texto_enteras} CON {decimales_str} SOLES"
 
-# --- GESTIÓN DE CORRELATIVO PERSISTENTE ---
-ARCHIVO_CONTADOR = "contador.txt"
-
-def obtener_correlativo_actual():
-    if os.path.exists(ARCHIVO_CONTADOR):
-        try:
-            with open(ARCHIVO_CONTADOR, "r") as f:
-                val = int(f.read().strip())
-        except:
-            val = 5960
-    else:
-        val = 5960
-    return val
-
-def incrementar_y_guardar_correlativo(val_actual):
-    try:
-        with open(ARCHIVO_CONTADOR, "w") as f:
-            f.write(str(val_actual + 1))
-    except:
-        pass
-
-if 'nro_secuencial' not in st.session_state:
-    st.session_state.nro_secuencial = obtener_correlativo_actual()
-
 # --- SECCIÓN 1: DATOS GENERALES Y ACCESO RUC SUNAT ---
 st.subheader("1. Información del Cliente y Cotización")
 
-# Barra de herramientas para consulta SUNAT
 st.markdown("##### 🔍 Asistente de Consulta RUC (SUNAT)")
 col_s1, col_s2 = st.columns([2, 3])
 with col_s1:
@@ -122,7 +124,7 @@ with col_s1:
         unsafe_allow_html=True
     )
 with col_s2:
-    st.info("💡 Consejo: Consulta el RUC en el portal de la SUNAT, copia los datos y pégalos directamente en los campos inferiores para cargarlos de forma automática en la cotización.")
+    st.info("💡 Consejo: Consulta el RUC en SUNAT, copia los datos y pégalos abajo para llenar el formulario automáticamente.")
 
 st.markdown("---")
 
@@ -201,8 +203,8 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON ESQUINAS OVALADAS Y PERFECTAS ---
-def generar_pdf():
+# --- FUNCIÓN PARA GENERAR EL PDF CON LÍNEAS COMPLETAS Y ESQUINAS OVALADAS ---
+def generar_pdf(nro_cotiz_str):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     elements = []
@@ -225,7 +227,7 @@ def generar_pdf():
     
     info_data = [
         [Paragraph(f"<b>CODIGO:</b> {codigo_ref}", estilo_normal), Paragraph(f"<b>FECHA:</b> {fecha.strftime('%d/%m/%Y')}", estilo_blanco)],
-        [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotizacion_actual}", estilo_blanco)],
+        [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotiz_str}", estilo_blanco)],
         [Paragraph(f"<b>DIRECCION:</b> {direccion}", estilo_normal), ""],
         [Paragraph(f"<b>RUC:</b> {ruc}", estilo_normal), ""]
     ]
@@ -238,7 +240,6 @@ def generar_pdf():
         ('BOTTOMPADDING', (1,0), (1,1), 4),
         ('LEFTPADDING', (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        # Esquinas ovaladas suaves y elegantes para la caja superior derecha
         ('ROUNDEDCORNERS', [8, 8, 8, 8]),
     ]))
     elements.append(t_info)
@@ -277,7 +278,6 @@ def generar_pdf():
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('TOPPADDING', (0,0), (-1,-1), 4),
         ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        # Esquinas ovaladas para la tabla de productos
         ('ROUNDEDCORNERS', [6, 6, 6, 6]),
     ]))
     elements.append(t_prod)
@@ -354,7 +354,8 @@ def generar_pdf():
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('TOPPADDING', (0,0), (-1,-1), 3),
             ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-            # Esquinas ovaladas suaves para la tabla de totales
+            # Cuadrícula interna completa para que aparezcan las líneas en Importe, IGV y Total
+            ('GRID', (0,0), (-1,-1), 0.5, colors.white),
             ('ROUNDEDCORNERS', [8, 8, 8, 8]),
         ]))
         
@@ -365,7 +366,6 @@ def generar_pdf():
             ('TOPPADDING', (0,0), (-1,-1), 5),
             ('BOTTOMPADDING', (0,0), (-1,-1), 5),
             ('LEFTPADDING', (0,0), (-1,-1), 6),
-            # Esquinas ovaladas para el cuadro de monto en letras
             ('ROUNDEDCORNERS', [8, 8, 8, 8]),
         ]))
         
@@ -406,23 +406,34 @@ def generar_pdf():
     return buffer
 
 st.markdown("---")
+
+# Generar el número de cotización actual basado en la sesión persistente
+nro_cotizacion_actual = f"000-{st.session_state.nro_secuencial}"
+
 col_b1, col_b2 = st.columns(2)
 
 with col_b1:
-    pdf_file = generar_pdf()
+    # Generamos el PDF con el número actual
+    pdf_file = generar_pdf(nro_cotizacion_actual)
     nombre_archivo_pdf = f"Cotizacion_{st.session_state.nro_secuencial}.pdf"
     
-    st.download_button(
+    # Botón de descarga que al mismo tiempo incrementa y guarda de manera definitiva el correlativo
+    clicked = st.download_button(
         label="📥 Descargar Cotización en PDF",
         data=pdf_file,
         file_name=nombre_archivo_pdf,
         mime="application/pdf",
         type="primary"
     )
+    
+    if clicked:
+        # Incrementar de forma persistente y actualizar la sesión para la próxima cotización
+        nuevo_val = incrementar_y_guardar_correlativo()
+        st.session_state.nro_secuencial = nuevo_val
+        st.rerun()
 
 with col_b2:
-    if st.button("🔄 Actualizar / Avanzar al Siguiente N° de Cotización"):
-        incrementar_y_guardar_correlativo(st.session_state.nro_secuencial)
-        st.session_state.nro_secuencial = obtener_correlativo_actual()
-        st.success("¡Correlativo actualizado correctamente para la siguiente cotización!")
+    if st.button("🔄 Forzar Siguiente N° de Cotización"):
+        st.session_state.nro_secuencial = incrementar_y_guardar_correlativo()
+        st.success("¡Correlativo avanzado correctamente!")
         st.rerun()
