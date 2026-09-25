@@ -394,8 +394,10 @@ def generar_pdf(nro_cotiz_str):
     def dibujar_elementos_fijos(canvas, doc):
         canvas.saveState()
         
-        estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-Bold', fontSize=9, leading=12)
-        estilo_c_val = ParagraphStyle('CV', fontName='Helvetica', fontSize=9, leading=12)
+        # Estilos modificados: letra más pequeña (8pt) y en cursiva (Helvetica-Oblique)
+        estilo_c_label = ParagraphStyle('CL', fontName='Helvetica-BoldOblique', fontSize=8, leading=11)
+        estilo_c_val = ParagraphStyle('CV', fontName='Helvetica-Oblique', fontSize=8, leading=11)
+        
         estilo_letras = ParagraphStyle('LC', fontName='Helvetica-Oblique', fontSize=9, leading=12)
         estilo_tot_lbl = ParagraphStyle('TL', fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=colors.white, alignment=0)
         estilo_tot_val = ParagraphStyle('TV', fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=2)
@@ -456,19 +458,19 @@ def generar_pdf(nro_cotiz_str):
         t_let_pdf.wrapOn(canvas, 552, 40)
         t_let_pdf.drawOn(canvas, 30, 48)
         
-        # --- 3. SELLO, LÍNEA DELGADA Y DATOS DE LA EMPRESA 100% AZULES ---
+        # --- 3. SELLO, LÍNEA FINITA Y DATOS AZULES UNIFICADOS ---
         if sello_path_proc and os.path.exists(sello_path_proc):
             try:
                 canvas.drawImage(sello_path_proc, 365, 120, width=165, height=75, mask='auto', preserveAspectRatio=True)
             except:
                 pass
                 
-        # Línea decorativa más delgada (grosor 0.5)
+        # Línea decorativa más delgada
         canvas.setStrokeColor(colors.HexColor("#003366"))
         canvas.setLineWidth(0.5)
         canvas.line(360, 117, 552, 117)
         
-        # Datos oficiales de la empresa con color azul corporativo unificado
+        # Datos oficiales de la empresa en azul corporativo
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.setFont("Helvetica-Bold", 8)
         canvas.drawCentredString(456, 106, "BRUSELAS GROUP EIRL")
