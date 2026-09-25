@@ -432,6 +432,18 @@ def generar_pdf(nro_cotiz_str):
             ('ROUNDEDCORNERS', [8, 8, 8, 8]),
         ]))
         
+        # --- 1. DIBUJAMOS SOLO LA TABLA DE CONDICIONES Y TOTALES ARRIBA ---
+        master_top_row = Table([[t_cond_pdf, t_tot_pdf]], colWidths=[330, 222])
+        master_top_row.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ]))
+        
+        master_top_row.wrapOn(canvas, 552, 120)
+        master_top_row.drawOn(canvas, 30, 105)  # Ubicado más arriba para dar espacio al sello
+        
+        # --- 2. DIBUJAMOS EL CUADRO DE LETRAS "SON:" FIJO MÁS ABAJO ---
         t_let_pdf = Table([[Paragraph(f"<b>SON:</b> &nbsp; {monto_en_letras}", estilo_letras)]], colWidths=[552])
         t_let_pdf.setStyle(TableStyle([
             ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#666666")),
@@ -441,49 +453,31 @@ def generar_pdf(nro_cotiz_str):
             ('LEFTPADDING', (0,0), (-1,-1), 6),
             ('ROUNDEDCORNERS', [8, 8, 8, 8]),
         ]))
+        t_let_pdf.wrapOn(canvas, 552, 40)
+        t_let_pdf.drawOn(canvas, 30, 48)  # Fijo y separado de la zona del sello
         
-        master_top_row = Table([[t_cond_pdf, t_tot_pdf]], colWidths=[330, 222])
-        master_top_row.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('LEFTPADDING', (0,0), (-1,-1), 0),
-            ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ]))
-        
-        master_block = Table([[master_top_row], [Spacer(1, 8)], [t_let_pdf]], colWidths=[552])
-        master_block.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 0),
-            ('LEFTPADDING', (0,0), (-1,-1), 0),
-            ('RIGHTPADDING', (0,0), (-1,-1), 0),
-            ('TOPPADDING', (0,0), (-1,-1), 0),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-        ]))
-        
-        # --- SUBIR MÁS EL BLOQUE DE TOTALES E IMPORTES (POSICIÓN Y = 68) ---
-        master_block.wrapOn(canvas, 552, 220)
-        master_block.drawOn(canvas, 30, 68)
-        
-        # --- SELLO, LÍNEA Y DATOS DE LA EMPRESA UBICADOS MÁS ARRIBA ---
+        # --- 3. DIBUJAMOS EL SELLO, LA LÍNEA Y LOS DATOS DE LA EMPRESA EN EL ESPACIO LIBRE CENTRAL ---
         if sello_path_proc and os.path.exists(sello_path_proc):
             try:
-                # Sello ubicado holgadamente en Y = 115
-                canvas.drawImage(sello_path_proc, 365, 115, width=170, height=80, mask='auto', preserveAspectRatio=True)
+                # Sello centrado en el espacio libre exacto entre los totales y "SON:"
+                canvas.drawImage(sello_path_proc, 365, 52, width=165, height=75, mask='auto', preserveAspectRatio=True)
             except:
                 pass
                 
-        # Línea decorativa elegante debajo del sello
+        # Línea decorativa elegante
         canvas.setStrokeColor(colors.HexColor("#003366"))
         canvas.setLineWidth(1)
-        canvas.line(360, 112, 552, 112)
+        canvas.line(360, 49, 552, 49)
         
-        # Datos oficiales de la empresa debajo de la línea
+        # Datos oficiales de la empresa
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawCentredString(456, 100, "BRUSELAS GROUP EIRL")
+        canvas.drawCentredString(456, 39, "BRUSELAS GROUP EIRL")
         
         canvas.setFont("Helvetica", 7)
         canvas.setFillColor(colors.HexColor("#333333"))
-        canvas.drawCentredString(456, 90, "RUC: 20611576456")
-        canvas.drawCentredString(456, 80, "SAN LUIS - LIMA - LIMA")
+        canvas.drawCentredString(456, 30, "RUC: 20611576456")
+        canvas.drawCentredString(456, 21, "SAN LUIS - LIMA - LIMA")
         
         canvas.restoreState()
 
