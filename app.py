@@ -105,22 +105,26 @@ def incrementar_y_guardar_correlativo(val_actual):
 if 'nro_secuencial' not in st.session_state:
     st.session_state.nro_secuencial = obtener_correlativo_actual()
 
-# --- SECCIÓN 1: DATOS GENERALES Y CONSULTA SUNAT ---
+# --- SECCIÓN 1: DATOS GENERALES Y ACCESO RUC SUNAT ---
 st.subheader("1. Información del Cliente y Cotización")
 
-# Botón de acceso directo a la página oficial de SUNAT para consultar RUC
-st.markdown(
-    """
-    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-        <span style="font-size: 14px; font-weight: 600;">¿Necesitas buscar los datos oficiales?</span>
+# Barra de herramientas para consulta SUNAT
+st.markdown("##### 🔍 Asistente de Consulta RUC (SUNAT)")
+col_s1, col_s2 = st.columns([2, 3])
+with col_s1:
+    st.markdown(
+        """
         <a href="https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/jcrS00Alias" target="_blank" 
-           style="background-color: #003366; color: white; padding: 6px 14px; border-radius: 5px; text-decoration: none; font-size: 13px; font-weight: bold;">
-           🌐 Ir a Consulta RUC SUNAT (Oficial)
+           style="display: inline-block; background-color: #003366; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; text-align: center;">
+           🌐 Abrir Portal Oficial SUNAT
         </a>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+        """,
+        unsafe_allow_html=True
+    )
+with col_s2:
+    st.info("💡 Consejo: Consulta el RUC en el portal de la SUNAT, copia los datos y pégalos directamente en los campos inferiores para cargarlos de forma automática en la cotización.")
+
+st.markdown("---")
 
 col1, col2, col3 = st.columns(3)
 
@@ -132,7 +136,7 @@ with col1:
 
 with col2:
     fecha = st.date_input("Fecha", datetime.today())
-    direccion = st.text_input("Dirección (Fiscal)", value=st.session_state.direccion_input, key="direccion_input")
+    direccion = st.text_input("Dirección (Fiscal / SUNAT)", value=st.session_state.direccion_input, key="direccion_input")
 
 with col3:
     cliente = st.text_input("Cliente (Razón Social)", value=st.session_state.cliente_input, key="cliente_input")
@@ -197,7 +201,7 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON DISEÑO LIMPIO Y ESTÉTICO ---
+# --- FUNCIÓN PARA GENERAR EL PDF CON ESQUINAS OVALADAS Y PERFECTAS ---
 def generar_pdf():
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -234,8 +238,8 @@ def generar_pdf():
         ('BOTTOMPADDING', (1,0), (1,1), 4),
         ('LEFTPADDING', (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        # Bordes limpios sin esquinas forzadas que generen cortes extraños
-        ('BOX', (1,0), (1,1), 1, colors.HexColor("#003366")),
+        # Esquinas ovaladas suaves y elegantes para la caja superior derecha
+        ('ROUNDEDCORNERS', [8, 8, 8, 8]),
     ]))
     elements.append(t_info)
     elements.append(Spacer(1, 15))
@@ -273,6 +277,8 @@ def generar_pdf():
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('TOPPADDING', (0,0), (-1,-1), 4),
         ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        # Esquinas ovaladas para la tabla de productos
+        ('ROUNDEDCORNERS', [6, 6, 6, 6]),
     ]))
     elements.append(t_prod)
     
@@ -345,11 +351,11 @@ def generar_pdf():
         t_tot_pdf = Table(tot_rows, colWidths=[90, 132])
         t_tot_pdf.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (0,-1), colors.HexColor("#003366")),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#003366")),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('TOPPADDING', (0,0), (-1,-1), 3),
             ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-            ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#003366")),
+            # Esquinas ovaladas suaves para la tabla de totales
+            ('ROUNDEDCORNERS', [8, 8, 8, 8]),
         ]))
         
         t_let_pdf = Table([[Paragraph(f"<b>SON:</b> &nbsp; {monto_en_letras}", estilo_letras)]], colWidths=[552])
@@ -359,6 +365,8 @@ def generar_pdf():
             ('TOPPADDING', (0,0), (-1,-1), 5),
             ('BOTTOMPADDING', (0,0), (-1,-1), 5),
             ('LEFTPADDING', (0,0), (-1,-1), 6),
+            # Esquinas ovaladas para el cuadro de monto en letras
+            ('ROUNDEDCORNERS', [8, 8, 8, 8]),
         ]))
         
         master_top_row = Table([[t_cond_pdf, t_tot_pdf]], colWidths=[330, 222])
