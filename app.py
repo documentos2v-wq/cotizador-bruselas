@@ -146,11 +146,11 @@ with col3:
 
 st.markdown("---")
 
-# --- SECCIÓN 2: DETALLE DE PRODUCTOS ---
+# --- SECCIÓN 2: DETALLE DE PRODUCTOS (ADAPTADO VERTICALMENTE PARA MÓVIL Y PC) ---
 st.subheader("2. Detalle de Productos y Precios")
 
-if 'productos_df' not in st.session_state:
-    st.session_state.productos_df = pd.DataFrame([
+if 'productos_lista' not in st.session_state:
+    st.session_state.productos_lista = [
         {
             "Cantidad": 20,
             "Código": "COCH4",
@@ -159,23 +159,56 @@ if 'productos_df' not in st.session_state:
             "Plazo Entrega": "10",
             "P.U. (Inc. IGV)": 399.90
         }
-    ])
+    ]
 
-df_input = st.session_state.productos_df.copy()
+st.markdown("Añade o edita los productos de forma vertical (ideal para celular y PC):")
 
-df_editado = st.data_editor(
-    df_input,
-    num_rows="dynamic",
-    use_container_width=True,
-    column_config={
-        "Cantidad": st.column_config.NumberColumn("Cantidad", min_value=1, step=1),
-        "P.U. (Inc. IGV)": st.column_config.NumberColumn("P.U. (Inc. IGV)", min_value=0.0, format="S/ %.2f")
-    }
-)
+# Formulario interactivo en bloques verticales
+nuevos_productos = []
+for idx, prod in enumerate(st.session_state.productos_lista):
+    st.markdown(f"**📦 Ítem N° {idx + 1}**")
+    col_v1, col_v2 = st.columns(2)
+    with col_v1:
+        canti = st.number_input(f"Cantidad {idx+1}", min_value=1, step=1, value=int(prod["Cantidad"]), key=f"cant_{idx}")
+        codi = st.text_input(f"Código {idx+1}", value=str(prod["Código"]), key=f"cod_{idx}")
+        marca_v = st.text_input(f"Marca {idx+1}", value=str(prod["Marca"]), key=f"mar_{idx}")
+    with col_v2:
+        plazo_v = st.text_input(f"Plazo Entrega {idx+1}", value=str(prod["Plazo Entrega"]), key=f"pla_{idx}")
+        pu_v = st.number_input(f"P.U. (Inc. IGV) {idx+1}", min_value=0.0, format="%.2f", value=float(prod["P.U. (Inc. IGV)"]), key=f"pu_{idx}")
+    
+    desc_v = st.text_area(f"Descripción {idx+1}", value=str(prod["Descripción"]), key=f"desc_{idx}")
+    
+    nuevos_productos.append({
+        "Cantidad": canti,
+        "Código": codi,
+        "Descripción": desc_v,
+        "Marca": marca_v,
+        "Plazo Entrega": plazo_v,
+        "P.U. (Inc. IGV)": pu_v
+    })
+    st.markdown("---")
 
-df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
-df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
-df_limpio['P.U. (Inc. IGV)'] = pd.to_numeric(df_limpio['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
+st.session_state.productos_lista = nuevos_productos
+df_limpio = pd.DataFrame(st.session_state.productos_lista)
+
+# Botones para agregar o quitar ítems cómodamente desde el celular
+col_add, col_rem = st.columns(2)
+with col_add:
+    if st.button("➕ Agregar otro producto"):
+        st.session_state.productos_lista.append({
+            "Cantidad": 1,
+            "Código": "",
+            "Descripción": "",
+            "Marca": "NACIONAL",
+            "Plazo Entrega": "10",
+            "P.U. (Inc. IGV)": 0.0
+        })
+        st.rerun()
+with col_rem:
+    if len(st.session_state.productos_lista) > 1:
+        if st.button("🗑️ Quitar último producto"):
+            st.session_state.productos_lista.pop()
+            st.rerun()
 
 df_limpio['Importe Total'] = df_limpio['Cantidad'] * df_limpio['P.U. (Inc. IGV)']
 importe_total_general = df_limpio['Importe Total'].sum()
@@ -296,11 +329,10 @@ def generar_pdf(nro_cotiz_str):
 
     def dibujar_fondo_y_decoraciones(canvas, doc):
         canvas.saveState()
-        # Fondo general de la página
         canvas.setFillColor(colors.HexColor("#F2F6F9"))
         canvas.rect(0, 0, 612, 792, fill=1, stroke=0)
         
-        # --- ENCABEZADO SUPERIOR AMPLIADO A 2.5 CM ---
+        # Encabezado superior
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.rect(0, 721, 612, 71, fill=1, stroke=0)
         
@@ -314,7 +346,7 @@ def generar_pdf(nro_cotiz_str):
         redes_texto = "■ f: /BruselasGroup   |   ■ WA: +51 917 386 419   |   ■ IG: @BruselasGroup   |   ■ TK: @BruselasEIRL"
         canvas.drawRightString(612 - 30, 755, redes_texto)
         
-        # --- PIE DE PÁGINA INFERIOR AZUL ---
+        # Pie de página
         canvas.setFillColor(colors.HexColor("#003366"))
         canvas.rect(0, 0, 612, 35, fill=1, stroke=0)
         canvas.setFillColor(colors.white)
@@ -370,7 +402,6 @@ def generar_pdf(nro_cotiz_str):
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('TOPPADDING', (0,0), (-1,-1), 3),
             ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-            # Líneas internas con el color azul corporativo (#003366) en lugar de blanco
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#003366")),
             ('ROUNDEDCORNERS', [8, 8, 8, 8]),
         ]))
