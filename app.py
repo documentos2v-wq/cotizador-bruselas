@@ -106,7 +106,7 @@ with col3:
 st.markdown("---")
 
 # --- SECCIÓN 2: DETALLE DE PRODUCTOS ---
-st.subheader("2. Detalle de Productos, Precios e Importes Totales")
+st.subheader("2. Detalle de Productos y Precios (El importe se calcula automáticamente)")
 
 if 'productos_df' not in st.session_state:
     st.session_state.productos_df = pd.DataFrame([
@@ -116,30 +116,28 @@ if 'productos_df' not in st.session_state:
             "Descripción": "REPRODUCTOR / EQUIPO TECNOLÓGICO ESPECIALIZADO",
             "Marca": "NACIONAL",
             "Plazo Entrega": "10",
-            "P.U. (Inc. IGV)": 399.90,
-            "Importe Total": 7998.00
+            "P.U. (Inc. IGV)": 399.90
         }
     ])
 
 df_input = st.session_state.productos_df.copy()
 
+# Editor sin la columna manual de importe total para evitar desincronización
 df_editado = st.data_editor(
     df_input,
     num_rows="dynamic",
     use_container_width=True,
     column_config={
         "Cantidad": st.column_config.NumberColumn("Cantidad", min_value=1, step=1),
-        "P.U. (Inc. IGV)": st.column_config.NumberColumn("P.U. (Inc. IGV)", min_value=0.0, format="S/ %.2f"),
-        "Importe Total": st.column_config.NumberColumn("Importe Total", format="S/ %.2f", disabled=True)
+        "P.U. (Inc. IGV)": st.column_config.NumberColumn("P.U. (Inc. IGV)", min_value=0.0, format="S/ %.2f")
     }
 )
 
-# --- RECALCULAR AUTOMÁTICAMENTE EL IMPORTE TOTAL POR FILA ---
+# --- CÁLCULO AUTOMÁTICO INEXPUGNABLE (Cantidad x Precio Unitario) ---
 df_limpio = df_editado.dropna(subset=['Cantidad', 'P.U. (Inc. IGV)']).copy()
 df_limpio['Cantidad'] = pd.to_numeric(df_limpio['Cantidad'], errors='coerce').fillna(0)
 df_limpio['P.U. (Inc. IGV)'] = pd.to_numeric(df_limpio['P.U. (Inc. IGV)'], errors='coerce').fillna(0.0)
 
-# Multiplicación exacta Cantidad x Precio Unitario en tiempo real
 df_limpio['Importe Total'] = df_limpio['Cantidad'] * df_limpio['P.U. (Inc. IGV)']
 
 importe_total_general = df_limpio['Importe Total'].sum()
