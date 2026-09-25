@@ -2,7 +2,6 @@ from datetime import datetime
 import io
 import os
 import pandas as pd
-import requests
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
@@ -15,51 +14,6 @@ st.set_page_config(page_title="Generador de Cotizaciones - Bruselas", layout="wi
 
 st.title("📄 Generador de Cotizaciones - BRUSELAS GROUP EIRL")
 st.markdown("---")
-
-# --- FUNCIÓN PARA CONSULTAR RUC EN LÍNEA ---
-def consultar_ruc_sunat(ruc_numero):
-    """
-    Consulta los datos de la empresa mediante API pública del padrón de SUNAT.
-    """
-    ruc_numero = str(ruc_numero).strip()
-    if len(ruc_numero) != 11 or not ruc_numero.isdigit():
-        return None
-    
-    # 1. Intentar consulta mediante endpoint público
-    try:
-        url = f"https://api.apis.net.pe/v1/ruc?numero={ruc_numero}"
-        headers = {"Accept": "application/json"}
-        response = requests.get(url, timeout=3)
-        if response.status_code == 200:
-            data = response.json()
-            if data and "razonSocial" in data:
-                return {
-                    "razon_social": data.get("razonSocial", "").strip(),
-                    "direccion": f"{data.get('direccion', '')} - {data.get('distrito', '')} - {data.get('provincia', '')} - {data.get('departamento', '')}".strip(" -")
-                }
-    except:
-        pass
-
-    # 2. Diccionario de respaldo local para clientes frecuentes y pruebas inmediatas
-    respaldos_frecuentes = {
-        "20354537096": {
-            "razon_social": "RED INTEGRADA DE SALUD OTUZCO",
-            "direccion": "CALLE TACNA Nº 769 - OTUZCO - LA LIBERTAD"
-        },
-        "20607260525": {
-            "razon_social": "CORPORACION COMERCIAL E INDUSTRIAL DEL NORTE S.A.C.",
-            "direccion": "AV. ESPAÑA NRO. 123 - TRUJILLO - LA LIBERTAD"
-        }
-    }
-    
-    if ruc_numero in respaldos_frecuentes:
-        return respaldos_frecuentes[ruc_numero]
-
-    # 3. Si no está en el respaldo, generamos una estructura estándar basada en el RUC ingresado
-    return {
-        "razon_social": f"CONTRIBUYENTE RUC {ruc_numero}",
-        "direccion": "AV. PRINCIPAL - PERÚ"
-    }
 
 # Inicializar Session States si no existen
 if 'ruc_input' not in st.session_state:
@@ -151,8 +105,22 @@ def incrementar_y_guardar_correlativo(val_actual):
 if 'nro_secuencial' not in st.session_state:
     st.session_state.nro_secuencial = obtener_correlativo_actual()
 
-# --- SECCIÓN 1: DATOS GENERALES ---
+# --- SECCIÓN 1: DATOS GENERALES Y CONSULTA SUNAT ---
 st.subheader("1. Información del Cliente y Cotización")
+
+# Botón de acceso directo a la página oficial de SUNAT para consultar RUC
+st.markdown(
+    """
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+        <span style="font-size: 14px; font-weight: 600;">¿Necesitas buscar los datos oficiales?</span>
+        <a href="https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/jcrS00Alias" target="_blank" 
+           style="background-color: #003366; color: white; padding: 6px 14px; border-radius: 5px; text-decoration: none; font-size: 13px; font-weight: bold;">
+           🌐 Ir a Consulta RUC SUNAT (Oficial)
+        </a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 col1, col2, col3 = st.columns(3)
 
@@ -160,31 +128,14 @@ with col1:
     nro_cotizacion_actual = f"000-{st.session_state.nro_secuencial}"
     st.text_input("N° de Cotización (Correlativo Automático)", value=nro_cotizacion_actual, disabled=True)
     
-    # Callback para autocompletar al cambiar el RUC
-    def on_change_ruc():
-        ruc_ingresado = st.session_state.widget_ruc
-        datos = consultar_ruc_sunat(ruc_ingresado)
-        if datos:
-            st.session_state.ruc_input = ruc_ingresado
-            st.session_state.cliente_input = datos["razon_social"]
-            st.session_state.direccion_input = datos["direccion"]
-
-    ruc = st.text_input("RUC del Cliente", value=st.session_state.ruc_input, key="widget_ruc", on_change=on_change_ruc)
+    ruc = st.text_input("RUC del Cliente", value=st.session_state.ruc_input, key="ruc_input")
 
 with col2:
     fecha = st.date_input("Fecha", datetime.today())
-    
-    # Asegurar sincronización del input de dirección con session_state
-    def on_change_dir():
-        st.session_state.direccion_input = st.session_state.widget_dir
-    direccion = st.text_input("Dirección", value=st.session_state.direccion_input, key="widget_dir", on_change=on_change_dir)
+    direccion = st.text_input("Dirección (Fiscal)", value=st.session_state.direccion_input, key="direccion_input")
 
 with col3:
-    # Asegurar sincronización del input de cliente con session_state
-    def on_change_cli():
-        st.session_state.cliente_input = st.session_state.widget_cli
-    cliente = st.text_input("Cliente (Razón Social)", value=st.session_state.cliente_input, key="widget_cli", on_change=on_change_cli)
-    
+    cliente = st.text_input("Cliente (Razón Social)", value=st.session_state.cliente_input, key="cliente_input")
     codigo_ref = st.text_input("Código Interno / Ref", "002022-0007-0045")
 
 st.markdown("---")
@@ -246,7 +197,7 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON ESQUINAS REDONDEADAS ---
+# --- FUNCIÓN PARA GENERAR EL PDF CON DISEÑO LIMPIO Y ESTÉTICO ---
 def generar_pdf():
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -270,21 +221,21 @@ def generar_pdf():
     
     info_data = [
         [Paragraph(f"<b>CODIGO:</b> {codigo_ref}", estilo_normal), Paragraph(f"<b>FECHA:</b> {fecha.strftime('%d/%m/%Y')}", estilo_blanco)],
-        [Paragraph(f"<b>CLIENTE:</b> {st.session_state.cliente_input}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotizacion_actual}", estilo_blanco)],
-        [Paragraph(f"<b>DIRECCION:</b> {st.session_state.direccion_input}", estilo_normal), ""],
-        [Paragraph(f"<b>RUC:</b> {st.session_state.ruc_input}", estilo_normal), ""]
+        [Paragraph(f"<b>CLIENTE:</b> {cliente}", estilo_normal), Paragraph(f"<b>PROF. N°:</b> {nro_cotizacion_actual}", estilo_blanco)],
+        [Paragraph(f"<b>DIRECCION:</b> {direccion}", estilo_normal), ""],
+        [Paragraph(f"<b>RUC:</b> {ruc}", estilo_normal), ""]
     ]
     
     t_info = Table(info_data, colWidths=[382, 170])
     t_info.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        # Esquinas ovaladas (redondeadas) en el recuadro superior derecho
-        ('ROUNDEDCORNERS', [6, 6, 6, 6]),
         ('BACKGROUND', (1,0), (1,1), colors.HexColor("#003366")),
         ('TOPPADDING', (1,0), (1,1), 4),
         ('BOTTOMPADDING', (1,0), (1,1), 4),
         ('LEFTPADDING', (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        # Bordes limpios sin esquinas forzadas que generen cortes extraños
+        ('BOX', (1,0), (1,1), 1, colors.HexColor("#003366")),
     ]))
     elements.append(t_info)
     elements.append(Spacer(1, 15))
@@ -398,19 +349,16 @@ def generar_pdf():
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('TOPPADDING', (0,0), (-1,-1), 3),
             ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-            # Esquinas ovaladas para la tabla de totales
-            ('ROUNDEDCORNERS', [4, 4, 4, 4]),
+            ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#003366")),
         ]))
         
         t_let_pdf = Table([[Paragraph(f"<b>SON:</b> &nbsp; {monto_en_letras}", estilo_letras)]], colWidths=[552])
         t_let_pdf.setStyle(TableStyle([
-            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#666666")),
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F9F9F9")),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 5),
             ('LEFTPADDING', (0,0), (-1,-1), 6),
-            # Esquinas ovaladas para el cuadro de monto en letras
-            ('ROUNDEDCORNERS', [4, 4, 4, 4]),
         ]))
         
         master_top_row = Table([[t_cond_pdf, t_tot_pdf]], colWidths=[330, 222])
@@ -422,7 +370,7 @@ def generar_pdf():
         
         master_block = Table([[master_top_row], [Spacer(1, 8)], [t_let_pdf]], colWidths=[552])
         master_block.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('VALIGN', (0,0), (-1,-1), 0),
             ('LEFTPADDING', (0,0), (-1,-1), 0),
             ('RIGHTPADDING', (0,0), (-1,-1), 0),
             ('TOPPADDING', (0,0), (-1,-1), 0),
