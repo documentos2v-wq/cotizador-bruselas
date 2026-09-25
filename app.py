@@ -234,7 +234,7 @@ with c2:
     ejecutivo = st.text_input("Ejecutivo de Ventas", "MELISSA QUISPE")
     moneda = st.text_input("Moneda", "S/. SOLES")
 
-# --- FUNCIÓN PARA GENERAR EL PDF CON SELLO TRANSPARENTE Y BIEN UBICADO ---
+# --- FUNCIÓN PARA GENERAR EL PDF CON SELLO, LÍNEA Y DATOS DE EMPRESA ---
 def generar_pdf(nro_cotiz_str):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=85, bottomMargin=40)
@@ -271,7 +271,7 @@ def generar_pdf(nro_cotiz_str):
         ('BOTTOMPADDING', (1,0), (1,1), 4),
         ('LEFTPADDING', (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('ROUNDEDCORNERS', [8, 8, 8, 8]),
+        ('ROUNDEDCORNERS', [8, 8, 8, 8],),
     ]))
     elements.append(t_info)
     elements.append(Spacer(1, 15))
@@ -325,16 +325,14 @@ def generar_pdf(nro_cotiz_str):
         except:
             pass
 
-    # Procesar el sello para quitarle el fondo blanco automáticamente
+    # Procesar sello transparente
     sello_path_proc = None
     if os.path.exists("sello.png"):
         try:
             sello_pil = PILImage.open("sello.png").convert("RGBA")
-            # Convertir el fondo blanco o casi blanco en transparente
             datas = sello_pil.getdata()
             new_data = []
             for item in datas:
-                # Si el píxel es muy claro (cerca del blanco), lo hacemos transparente
                 if item[0] > 220 and item[1] > 220 and item[2] > 220:
                     new_data.append((255, 255, 255, 0))
                 else:
@@ -441,6 +439,7 @@ def generar_pdf(nro_cotiz_str):
             ('RIGHTPADDING', (0,0), (-1,-1), 0),
         ]))
         
+        # --- SUBIR EL RECUADRO DE RESULTADOS Y TOTALES (POSICIÓN Y = 58) ---
         master_block = Table([[master_top_row], [Spacer(1, 8)], [t_let_pdf]], colWidths=[552])
         master_block.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 0),
@@ -451,15 +450,30 @@ def generar_pdf(nro_cotiz_str):
         ]))
         
         master_block.wrapOn(canvas, 552, 220)
-        master_block.drawOn(canvas, 30, 42)
+        master_block.drawOn(canvas, 30, 58)
         
-        # --- DIBUJAR SELLO Y FIRMA TRANSPARENTE UBICADO EXACTAMENTE EN EL ESPACIO LIBRE ---
+        # --- DIBUJAR SELLO, LÍNEA DECORATIVA Y DATOS DE EMPRESA ---
         if sello_path_proc and os.path.exists(sello_path_proc):
             try:
-                # Subido ligeramente a Y=55 para que no cruce la caja inferior de "SON:"
-                canvas.drawImage(sello_path_proc, 365, 52, width=175, height=85, mask='auto', preserveAspectRatio=True)
+                # Sello ubicado más arriba (Y = 88)
+                canvas.drawImage(sello_path_proc, 365, 88, width=175, height=85, mask='auto', preserveAspectRatio=True)
             except:
                 pass
+                
+        # Línea decorativa debajo del sello
+        canvas.setStrokeColor(colors.HexColor("#003366"))
+        canvas.setLineWidth(1)
+        canvas.line(360, 85, 552, 85)
+        
+        # Datos de la empresa debajo de la línea
+        canvas.setFillColor(colors.HexColor("#003366"))
+        canvas.setFont("Helvetica-Bold", 8)
+        canvas.drawCentredString(456, 73, "BRUSELAS GROUP EIRL")
+        
+        canvas.setFont("Helvetica", 7)
+        canvas.setFillColor(colors.HexColor("#333333"))
+        canvas.drawCentredString(456, 62, "RUC: 20611576456")
+        canvas.drawCentredString(456, 52, "SAN LUIS - LIMA - LIMA")
         
         canvas.restoreState()
 
